@@ -2,7 +2,7 @@
 ## Objective 
 Classify a given body of water as potable or non-potable. 
 ## Data 
-Source: https://www.kaggle.com/adityakadiwal/water-potability
+Source: https://www.kaggle.com/adityakadiwal/water-potability  
 Fields: 
 - pH value 
 - Hardness 
