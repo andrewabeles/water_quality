@@ -1,0 +1,37 @@
+---
+title: "ADS502 Team 5 Final Project"
+author: "Katie Hu, Andrew Abeles, Emma Oo, Jake Burnett"
+date: "7/27/2021"
+output: html_document:
+          toc: TRUE
+---
+
+#### *Insert Description and Details of Project*
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import Libraries and Dataset
+```{r}
+#Graph
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+```
+
+### Import Dataset
+```{r}
+water <- read.csv("/Users/katiehu/Desktop/WaterQuality/water_potability.csv", header=TRUE, sep=',')
+head(water)
+summary(water)
+```
+
+
+
+
+
+
