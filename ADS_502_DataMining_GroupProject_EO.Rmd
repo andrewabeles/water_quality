@@ -1,0 +1,75 @@
+---
+title: "ADS502_Data Mining Group Project"
+output: html_notebook
+---
+
+```{r}
+pacman::p_load(ggplot2,ggthemes,dplyr,mice,randomForest,readr,tidyverse,GGally,VIM,ggcorrplot,moments,caret,ggpubr)
+
+water <- read.delim("/Users/emmaoo/Desktop/water_potability.csv",header = TRUE, sep = ",")
+str(water)
+water
+```
+
+```{r}
+colSums(is.na(water))
+```
+#Checking ph varible
+```{r}
+summary(water$ph)
+hist(water$ph)
+```
+#Since ph numbers are between scale (1-14) and no outliers observed, replace all the missing values with median
+```{r}
+water$ph[is.na(water$ph)]<-median(water$ph,na.rm=TRUE)
+```
+
+#Checking Sulfate variable
+```{r}
+summary(water$Sulfate)
+hist(water$Sulfate)
+```
+#Since sulfate level numbers from min, 1st qu, 2nd qu, 3rd qu, and max are not that much different from each other, replace missing values with median values
+```{r}
+water$Sulfate[is.na(water$Sulfate)]<-median(water$Sulfate,na.rm=TRUE)
+```
+
+#Checking Trihalomethanes Varialbe
+```{r}
+summary(water$Trihalomethane)
+hist(water$Trihalomethane)
+```
+
+```{r}
+water$Trihalomethanes[is.na(water$Trihalomethanes)]<-median(water$Trihalomethanes,na.rm=TRUE)
+```
+
+#Double-checking missing values after data clean-up
+```{r}
+colSums(is.na(water))
+```
+#Checkign skewness of variables
+```{r}
+skewness(water[,-10])
+```
+#Visualization of dataset with histograms
+#Overall, most variables are most evenly distruibuted with negelectible skewness like the numbers mentioned above.   
+#For potability, ess potability (1) than 0.
+```{r}
+hist(water$ph)
+hist(water$Hardness)
+hist(water$Solids)
+hist(water$Chloramines)
+hist(water$Sulfate)
+hist(water$Conductivity)
+hist(water$Organic_carbon)
+hist(water$Trihalomethanes)
+hist(water$Turbidity)
+hist(water$Potability)
+```
+#Correlations
+```{r}
+correlation <- cor(water,use="pairwise", method="spearman")
+correlation
+ggcorrplot(correlation)
+```
