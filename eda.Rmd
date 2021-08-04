@@ -1,0 +1,75 @@
+---
+title: "Water Potability Classification"
+author: "Andrew Abeles"
+date: "8/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+```
+
+```{r}
+df <- read.csv("water_potability.csv")
+df$Potability <- as.factor(df$Potability)
+head(df)
+```
+### Pairwise Correlations
+
+```{r}
+ggpairs(
+  df,
+  columns = 1:9,
+  upper = list(continuous = wrap("cor", size = 3))
+) + 
+theme(
+  text = element_text(size = 7)
+)
+```
+
+None of the attributes appear to be strongly correlated. They all appear to be approximately normally distributed. 
+
+
+```{r}
+ggcorr(
+  df[, -10],
+  label = TRUE,
+  label_alpha = TRUE,
+  label_round = 2,
+  hjust = 0.8
+)
+```
+
+Sulfate and Solids have the strongest correlation with a coefficient of -0.17. 
+
+### Missing Values
+
+```{r}
+colSums(is.na(df))
+```
+ph, Sulfate, and Trihalomethanes have missing values. ph and Trihalomethanes are not correlated with any other attribute, so let's just replace their missing values with their means. 
+
+```{r}
+df$ph[is.na(df$ph)] <- mean(df$ph, na.rm = TRUE)
+df$Trihalomethanes[is.na(df$Trihalomethanes)] <- mean(df$Trihalomethanes, na.rm = TRUE)
+```
+
+Since Sulfate is slightly correlated with Solids, we can leverage that mutual information to impute the missing Sulfate values. Let's regress Sulfate on Solids, and use that regression to predict the missing Sulfate values. 
+
+```{r}
+df_no_na <- df %>% filter(!is.na(Sulfate)) 
+sulfate_reg <- lm(Sulfate ~ Solids, data = df_no_na)
+ggplot(df_no_na, aes(x = Solids, y = Sulfate)) + geom_point() + stat_smooth(method = "lm", col = "red")
+```
+
+
+```{r}
+df_na <- df[is.na(df$Sulfate),]
+df_na$Sulfate <- predict(sulfate_reg, newdata = df_na["Solids"])
+df <- rbind(df_no_na, df_na)
+colSums(is.na(df)) 
+```
+There are no more missing values. 
