@@ -2,8 +2,7 @@
 title: "ADS502 Team 5 Final Project"
 author: "Katie Hu, Andrew Abeles, Emma Oo, Jake Burnett"
 date: "7/27/2021"
-output: html_document:
-          toc: TRUE
+output: html_document
 ---
 
 #### *Insert Description and Details of Project*
@@ -12,26 +11,71 @@ output: html_document:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Import Libraries and Dataset
+## Libraries and Dataset
 ```{r}
-#Graph
+#Import Libaries and Dataset
+
 library(ggplot2)
 library(corrplot)
 library(dplyr)
 library(tidyverse)
 library(rpart)
 library(rpart.plot)
+library(psych)
+library(ggpubr)
 ```
 
-### Import Dataset
+## Import Dataset
 ```{r}
-water <- read.csv("/Users/katiehu/Desktop/WaterQuality/water_potability.csv", header=TRUE, sep=',')
+water <- read.csv("/Users/katiehu/Desktop/GRAD SCHOOL/ADS 502 - Applied Data Mining/Team Project/water_potability.csv", header=TRUE, sep=',')
 head(water)
 summary(water)
 ```
 
+## Data Cleaning
+### Solve for Missing Variables
+#### There are three missing variables. 
+- ph: 491
+- Sulfate: 781
+- Trihalomethanes: 162
 
+```{r}
+#Create new dataframe to preserve original dataset and assign new variable.
+water_clean <- water
+```
 
+```{r}
+#Find variables with missing values.
+colSums(is.na(water_clean))
+```
 
+```{r}
+#See if any variables are highly correlated. 
+corPlot(water_clean, cex = .7)
+```
 
+```{r}
+#Scatter plot
+pairs(~ph+Sulfate+Trihalomethanes, data = water_clean, main = 'ScatterPlot Matrix')
+```
+```{r}
+#attach(water_clean)
+#layout(matrix(c(1,1,1), ncol=3, byrow = TRUE))
+ph_graph <- hist(ph, main = 'Histogram for ph', xlab = 'PH', col = 'cornflowerblue')
+Sulfate_graph <- hist(Sulfate, main = 'Histogram for Sulfate', xlab = 'Sulfate', col = 'cornflowerblue')
+Trih_graph <- hist(Trihalomethanes, main = 'Histogram for Trihalomethanes', xlab = 'Trihalomethanes', col = 'cornflowerblue')
+#ggarrange(ph_graph, Sulfate_graph, Trih_graph, labels = c("ph", "Sulfate", "Trihalomethanes"), ncol = 3, nrow = 1)
+```
 
+```{r}
+#No variables have significant correlation with one another. Each variable with missing values has a normal distribution. With this, the missing values were replaced with the mean.
+
+water_clean$ph[is.na(water_clean$ph)] <- mean(water_clean$ph, na.rm = TRUE)
+water_clean$Sulfate[is.na(water_clean$Sulfate)] <- mean(water_clean$Sulfate, na.rm = TRUE)
+water_clean$Trihalomethanes[is.na(water_clean$Trihalomethanes)] <- mean(water_clean$Trihalomethanes, na.rm = TRUE)
+```
+
+```{r}
+#Determine if still any missing variables.
+colSums(is.na(water_clean))
+```

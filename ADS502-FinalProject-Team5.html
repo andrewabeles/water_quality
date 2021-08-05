@@ -171,13 +171,16 @@ pre code {
 </div>
 
 
+<div id="insert-description-and-details-of-project" class="section level4">
+<h4><em>Insert Description and Details of Project</em></h4>
+</div>
 <div id="import-libraries-and-dataset" class="section level3">
 <h3>Import Libraries and Dataset</h3>
-<pre class="r"><code>library(ggplot2)</code></pre>
+<p>library(ggplot2) library(corrplot) library(dplyr) library(tidyverse) library(rpart) library(rpart.plot)</p>
 </div>
 <div id="import-dataset" class="section level3">
 <h3>Import Dataset</h3>
-<pre class="r"><code>water &lt;- read.csv(&quot;/Users/katiehu/Desktop/WaterQuality/water_potability.csv&quot;, header=TRUE, sep=&#39;,&#39;)
+<pre class="r"><code>water &lt;- read.csv(&quot;/Users/katiehu/Desktop/GRAD SCHOOL/ADS 502 - Applied Data Mining/Team Project/water_potability.csv&quot;, header=TRUE, sep=&#39;,&#39;)
 head(water)</code></pre>
 <pre><code>##         ph Hardness   Solids Chloramines  Sulfate Conductivity Organic_carbon
 ## 1       NA 204.8905 20791.32    7.300212 368.5164     564.3087      10.379783
@@ -218,6 +221,22 @@ head(water)</code></pre>
 ##  3rd Qu.:4.500   3rd Qu.:1.0000  
 ##  Max.   :6.739   Max.   :1.0000  
 ## </code></pre>
+</div>
+<div id="solve-for-missing-variables" class="section level3">
+<h3>Solve for Missing Variables</h3>
+<div id="there-are-three-missing-variables." class="section level4">
+<h4>There are three missing variables.</h4>
+<ul>
+<li>ph: 491</li>
+<li>Sulfate: 781</li>
+<li>Trihalomethanes: 162</li>
+</ul>
+<pre class="r"><code>colSums(is.na(water))</code></pre>
+<pre><code>##              ph        Hardness          Solids     Chloramines         Sulfate 
+##             491               0               0               0             781 
+##    Conductivity  Organic_carbon Trihalomethanes       Turbidity      Potability 
+##               0               0             162               0               0</code></pre>
+</div>
 </div>
 
 
