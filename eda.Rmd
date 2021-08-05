@@ -14,62 +14,71 @@ library(dplyr)
 
 ```{r}
 df <- read.csv("water_potability.csv")
+df$Index <- 1:nrow(df)
 df$Potability <- as.factor(df$Potability)
 head(df)
 ```
-### Pairwise Correlations
+### Outliers 
+
+Let's create some functions to help us identify outliers. 
 
 ```{r}
-ggpairs(
-  df,
-  columns = 1:9,
-  upper = list(continuous = wrap("cor", size = 3))
-) + 
-theme(
-  text = element_text(size = 7)
-)
+z <- function(x, m, sd) { # transforms a single value into its z-score 
+  return((x - m) / sd)
+}
+
+is_outlier <- function(x, m, sd) { # determines whether a single value is an outlier
+  z <- z(x, m, sd)
+  return(abs(z) > 3)
+}
+
+outliers <- function(v) { # returns a boolean mask indicating which values in the vector are outliers
+  m <- mean(v, na.rm = TRUE)
+  sd <- sd(v, na.rm = TRUE)
+  return(lapply(v, is_outlier, m=m, sd=sd))
+}
 ```
 
-None of the attributes appear to be strongly correlated. They all appear to be approximately normally distributed. 
-
+Let's use these functions to label an instance as an outlier if any of its attributes is an outlier. 
 
 ```{r}
-ggcorr(
-  df[, -10],
-  label = TRUE,
-  label_alpha = TRUE,
-  label_round = 2,
-  hjust = 0.8
-)
+outlier_indices <- c() # vector to store outlier indices 
+for (col in colnames(df[, 1:9])) { # for each predictor column 
+  v <- unlist(df[c(col)]) # unlist and call it v 
+  indices <- filter(df, outliers(v) == TRUE)[c("Index")] # get its outliers' indices 
+  outlier_indices <- c(outlier_indices, indices) # append them to the global vector of outlier indices 
+}
+outlier_indices <- unlist(outlier_indices) # flatten the list of lists into a simple vector 
+df$Outlier <- df$Index %in% outlier_indices # use the indices to create an outlier indicator column 
+df_outliers <- filter(df, Outlier == TRUE)
+df_no_outliers <- filter(df, Outlier == FALSE)
+df_outliers
 ```
 
-Sulfate and Solids have the strongest correlation with a coefficient of -0.17. 
+There are 115 outliers. 
+
+```{r}
+t <- prop.table(table(df$Potability, df$Outlier))
+row.names(t) <- c("Not Potable", "Potable")
+colnames(t) <- c("Not Outlier", "Outlier")
+t <- addmargins(A = t, FUN = list(Total = sum), quiet = TRUE)
+t
+```
+
+The 115 outliers make up 3.5% of the dataset. The outliers' Potability class balance is almost the inverse of the non-outliers'.  
 
 ### Missing Values
 
 ```{r}
 colSums(is.na(df))
 ```
-ph, Sulfate, and Trihalomethanes have missing values. ph and Trihalomethanes are not correlated with any other attribute, so let's just replace their missing values with their means. 
+ph, Sulfate, and Trihalomethanes have missing values. ph and Trihalomethanes are not correlated with any other attribute, so let's just replace their missing values with their non-outlier means. 
 
 ```{r}
-df$ph[is.na(df$ph)] <- mean(df$ph, na.rm = TRUE)
+df$ph[is.na(df$ph)] <- mean(df_$ph, na.rm = TRUE)
+df$Sulfate[is.na(df$Sulfate)] <- mean(df$Sulfate, na.rm = TRUE)
 df$Trihalomethanes[is.na(df$Trihalomethanes)] <- mean(df$Trihalomethanes, na.rm = TRUE)
+colSums(is.na(df))
 ```
 
-Since Sulfate is slightly correlated with Solids, we can leverage that mutual information to impute the missing Sulfate values. Let's regress Sulfate on Solids, and use that regression to predict the missing Sulfate values. 
-
-```{r}
-df_no_na <- df %>% filter(!is.na(Sulfate)) 
-sulfate_reg <- lm(Sulfate ~ Solids, data = df_no_na)
-ggplot(df_no_na, aes(x = Solids, y = Sulfate)) + geom_point() + stat_smooth(method = "lm", col = "red")
-```
-
-
-```{r}
-df_na <- df[is.na(df$Sulfate),]
-df_na$Sulfate <- predict(sulfate_reg, newdata = df_na["Solids"])
-df <- rbind(df_no_na, df_na)
-colSums(is.na(df)) 
-```
 There are no more missing values. 
