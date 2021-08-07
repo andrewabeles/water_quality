@@ -1,0 +1,23 @@
+Meeting Notes: 8/7
+
+Agreed on Removing Outliers of 3.5% of the data
+
+Train_Test_Split : 80/20 Split
+Seed: 7
+
+Emma Model: Decision Tree
+Jake Model: Multiple Regresion
+Andrew Model: ANN or KNN
+
+Andrew: Climate Change Effects of Trihalomethanes
+- Trihalomethanes & Carbon Increases 
+- Climate Change plays a role in the quality of drinking water
+
+Katie: The physical and chemical properties of water translated to taste and smell
+- People identify mostly with taste and smell of water
+- How the properties change and alter taste and smell
+
+Health Risks of Poor Water Quality? 
+
+Deliverable: Monday - August 9
+-Have Models Finalized to Review
