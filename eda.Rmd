@@ -167,10 +167,12 @@ accuracy <- (TP + TN) / GT
 precision <- TP / TPP
 recall <- TP / TAP 
 specificity <- TN / TAN 
+F1_score <- 2 * (precision * recall) / (precision + recall)
 accuracy
 precision
 recall 
 specificity 
+F1_score
 ```
 
 

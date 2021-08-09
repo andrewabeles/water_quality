@@ -561,6 +561,7 @@ TPN &lt;- cm[3, 1] # total predicted negatives </code></pre>
 precision &lt;- TP / TPP
 recall &lt;- TP / TAP 
 specificity &lt;- TN / TAN 
+F1_score &lt;- 2 * (precision * recall) / (precision + recall)
 accuracy</code></pre>
 <pre><code>## [1] 0.6494689</code></pre>
 <pre class="r"><code>precision</code></pre>
@@ -569,6 +570,8 @@ accuracy</code></pre>
 <pre><code>## [1] 0.3726236</code></pre>
 <pre class="r"><code>specificity </code></pre>
 <pre><code>## [1] 0.8333333</code></pre>
+<pre class="r"><code>F1_score</code></pre>
+<pre><code>## [1] 0.4590164</code></pre>
 </div>
 </div>
 
