@@ -8,8 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
-library(GGally)
 library(dplyr)
+library(class)
 ```
 
 ```{r}
@@ -72,13 +72,134 @@ The 115 outliers make up 3.5% of the dataset. The outliers' Potability class bal
 ```{r}
 colSums(is.na(df))
 ```
-ph, Sulfate, and Trihalomethanes have missing values. ph and Trihalomethanes are not correlated with any other attribute, so let's just replace their missing values with their non-outlier means. 
+ph, Sulfate, and Trihalomethanes have missing values. They are not correlated with other attributes and their distributions are approximately normal so let's just replace their missing values with their non-outlier means. 
 
 ```{r}
-df$ph[is.na(df$ph)] <- mean(df_$ph, na.rm = TRUE)
-df$Sulfate[is.na(df$Sulfate)] <- mean(df$Sulfate, na.rm = TRUE)
-df$Trihalomethanes[is.na(df$Trihalomethanes)] <- mean(df$Trihalomethanes, na.rm = TRUE)
+df$ph[is.na(df$ph)] <- mean(df_no_outliers$ph, na.rm = TRUE)
+df$Sulfate[is.na(df$Sulfate)] <- mean(df_no_outliers$Sulfate, na.rm = TRUE)
+df$Trihalomethanes[is.na(df$Trihalomethanes)] <- mean(df_no_outliers$Trihalomethanes, na.rm = TRUE)
 colSums(is.na(df))
 ```
 
 There are no more missing values. 
+
+```{r}
+write.csv(df, "water_potability_clean.csv", row.names = FALSE)
+```
+
+### Train Test Split 
+```{r}
+set.seed(7)
+n <- dim(df)[1]
+idx <- runif(n) < 0.8
+df_train <- df[ idx, ]
+df_test <- df[ !idx, ]
+```
+
+### Scale Data
+
+```{r}
+y_train <- df_train$Potability
+X_train <- df_train[, 1:9]
+X_train <- as.data.frame(scale(X_train))
+y_test <- df_test$Potability
+X_test <- df_test[, 1:9]
+X_test <- as.data.frame(scale(X_test))
+baseline_accuracy <- length(y_test[ y_test == 0 ]) / length(y_test) 
+baseline_accuracy
+```
+
+### Model
+#### KNN
+```{r}
+set.seed(7)
+accuracies <- c() 
+for (k in 1:10) { # for each value of K between 1 and 10
+  knn <- knn( # train a KNN model 
+    train = X_train, 
+    test = X_test, 
+    cl = y_train, 
+    k = k
+  ) 
+  cm <- as.matrix(table(Actual = y_test, Predict = knn)) # get its confusion matrix 
+  accuracy <- sum(diag(cm)) / length(y_test) # derive its accuracy from its confusion matrix
+  accuracies <- append(accuracies, accuracy) # append its accuracy to the list 
+}
+plot( # plot the accuracy for each value of K 
+  x = 1:10, 
+  y = accuracies,
+  type = "l",
+  xlab = "K",
+  ylab = "Accuracy",
+  main = "KNN Accuracies"
+)
+```
+
+K = 5 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 5 and calculate its confusion matrix. 
+
+```{r}
+knn <- knn(
+  train = X_train,
+  test = X_test, 
+  cl = y_train, 
+  k = 5
+)
+cm <- as.matrix(table(Actual = y_test, Predicted = knn))
+cm <- addmargins(A = cm, FUN = list(Total = sum), quiet = TRUE)
+cm
+```
+
+Let's use the confusion matrix to derive performance metrics. 
+```{r}
+GT <- cm[3, 3] # grand total 
+TP <- cm[2, 2] # true positives
+TN <- cm[1, 1] # true negatives
+FP <- cm[1, 2] # false positives 
+FN <- cm[2, 1] # false negatives
+TAP <- cm[2, 3] # total actual positives 
+TAN <- cm[1, 3] # total actual negatives 
+TPP <- cm[3, 2] # total predicted positives 
+TPN <- cm[3, 1] # total predicted negatives 
+```
+
+```{r}
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+recall <- TP / TAP 
+specificity <- TN / TAN 
+accuracy
+precision
+recall 
+specificity 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
