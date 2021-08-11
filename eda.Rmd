@@ -50,9 +50,7 @@ for (col in colnames(df[, 1:9])) { # for each predictor column
 }
 outlier_indices <- unlist(outlier_indices) # flatten the list of lists into a simple vector 
 df$Outlier <- df$Index %in% outlier_indices # use the indices to create an outlier indicator column 
-df_outliers <- filter(df, Outlier == TRUE)
-df_no_outliers <- filter(df, Outlier == FALSE)
-df_outliers
+filter(df, Outlier == TRUE)
 ```
 
 There are 115 outliers. 
@@ -75,6 +73,7 @@ colSums(is.na(df))
 ph, Sulfate, and Trihalomethanes have missing values. They are not correlated with other attributes and their distributions are approximately normal so let's just replace their missing values with their non-outlier means. 
 
 ```{r}
+df_no_outliers <- filter(df, Outlier == FALSE)
 df$ph[is.na(df$ph)] <- mean(df_no_outliers$ph, na.rm = TRUE)
 df$Sulfate[is.na(df$Sulfate)] <- mean(df_no_outliers$Sulfate, na.rm = TRUE)
 df$Trihalomethanes[is.na(df$Trihalomethanes)] <- mean(df_no_outliers$Trihalomethanes, na.rm = TRUE)
@@ -90,7 +89,7 @@ write.csv(df, "water_potability_clean.csv", row.names = FALSE)
 ### Train Test Split 
 ```{r}
 set.seed(7)
-n <- dim(df_no_outliers)[1]
+n <- dim(df)[1]
 idx <- runif(n) < 0.8
 df_train <- df[ idx, ]
 df_test <- df[ !idx, ]
@@ -112,7 +111,6 @@ baseline_accuracy
 ### Model
 #### KNN (Including Outliers)
 ```{r}
-set.seed(7)
 accuracies <- c() 
 for (k in 1:10) { # for each value of K between 1 and 10
   knn <- knn( # train a KNN model 
@@ -179,7 +177,6 @@ F1_score
 ##### Train Test Split
 ```{r}
 df_no_outliers <- filter(df, Outlier == FALSE)
-set.seed(7)
 n <- dim(df_no_outliers)[1]
 idx <- runif(n) < 0.8
 df_train <- df_no_outliers[ idx, ]
@@ -199,7 +196,6 @@ baseline_accuracy
 ```
 
 ```{r}
-set.seed(7)
 accuracies <- c() 
 for (k in 1:10) { # for each value of K between 1 and 10
   knn <- knn( # train a KNN model 
