@@ -16,6 +16,13 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(GGally)
 library(dplyr)
+library(class)
+library(C50)
+library(reldist)
+library(e1071)
+library(caret) 
+library(rpart)
+library(rpart.plot)
 ```
 
 ## Import Dataset
@@ -113,30 +120,372 @@ The 115 outliers make up 3.5% of the data set. The outliers' Potability class ba
 colSums(is.na(water_clean))
 ```
 
-```{r ph boxplot}
+```{r}
+attach(water_clean)
+par(mfrow=c(3,3))
 boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
-```
-```{r Hardness boxplot}
 boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
-```
-```{r Solids boxplot}
 boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
-```
-```{r Chloramines boxplot}
 boxplot(Chloramines~Potability,data=water_clean, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
-```
-```{r Sulfate boxplot}
 boxplot(Sulfate~Potability,data=water_clean, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
-```
-```{r Conductivity boxplot}
 boxplot(Conductivity~Potability,data=water_clean, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
-```
-```{r Orangic_Carbon boxplot}
 boxplot(Organic_carbon~Potability,data=water_clean, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
-```
-```{r Trihalomethanes boxplot}
 boxplot(Trihalomethanes~Potability,data=water_clean, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
-```
-```{r Turbidity boxplot}
 boxplot(Turbidity~Potability,data=water_clean, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
+```
+
+#### Save as File
+```{r}
+write.csv(df, "water_clean.csv", row.names = FALSE)
+```
+
+### Models
+
+#### K-Nearest Neighbor Classification 
+
+### Train Test Split (Including Outliers)
+```{r}
+set.seed(7)
+n <- dim(water_clean)[1]
+idx <- runif(n) < 0.8
+water_train <- water_clean[ idx, ]
+water_test <- water_clean[ !idx, ]
+```
+
+### Scale Data (Including Outliers)
+
+```{r}
+y_train <- water_train$Potability
+X_train <- water_train[, 1:9]
+X_train <- as.data.frame(scale(X_train))
+y_test <- water_test$Potability
+X_test <- water_test[, 1:9]
+X_test <- as.data.frame(scale(X_test))
+baseline_accuracy <- length(y_test[ y_test == 0 ]) / length(y_test) 
+baseline_accuracy
+```
+
+### Model
+#### KNN (Including Outliers)
+```{r}
+set.seed(7)
+accuracies <- c() 
+for (k in 1:10) { # for each value of K between 1 and 10
+  knn <- knn( # train a KNN model 
+    train = X_train, 
+    test = X_test, 
+    cl = y_train, 
+    k = k
+  ) 
+  cm <- as.matrix(table(Actual = y_test, Predict = knn)) # get its confusion matrix 
+  accuracy <- sum(diag(cm)) / length(y_test) # derive its accuracy from its confusion matrix
+  accuracies <- append(accuracies, accuracy) # append its accuracy to the list 
+}
+plot( # plot the accuracy for each value of K 
+  x = 1:10, 
+  y = accuracies,
+  type = "l",
+  xlab = "K",
+  ylab = "Accuracy",
+  main = "KNN Accuracies"
+)
+```
+
+K = 5 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 5 and calculate its confusion matrix. 
+
+```{r}
+knn <- knn(
+  train = X_train,
+  test = X_test, 
+  cl = y_train, 
+  k = 5
+)
+cm <- as.matrix(table(Actual = y_test, Predicted = knn))
+cm <- addmargins(A = cm, FUN = list(Total = sum), quiet = TRUE)
+cm
+```
+
+Let's use the confusion matrix to derive performance metrics. 
+```{r}
+GT <- cm[3, 3] # grand total 
+TP <- cm[2, 2] # true positives
+TN <- cm[1, 1] # true negatives
+FP <- cm[1, 2] # false positives 
+FN <- cm[2, 1] # false negatives
+TAP <- cm[2, 3] # total actual positives 
+TAN <- cm[1, 3] # total actual negatives 
+TPP <- cm[3, 2] # total predicted positives 
+TPN <- cm[3, 1] # total predicted negatives 
+```
+
+```{r}
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+recall <- TP / TAP 
+specificity <- TN / TAN 
+F1_score <- 2 * (precision * recall) / (precision + recall)
+accuracy
+precision
+recall 
+specificity 
+F1_score
+```
+#### KNN (Excluding Outliers)
+
+##### Train Test Split
+```{r}
+water_clean_no_outliers <- filter(water_clean, Outlier == FALSE)
+set.seed(7)
+n <- dim(water_clean_no_outliers)[1]
+idx <- runif(n) < 0.8
+water_train <- water_clean_no_outliers[ idx, ]
+water_test <- water_clean_no_outliers[ !idx, ]
+```
+
+##### Scale Data 
+```{r}
+y_train <- water_train$Potability
+X_train <- water_train[, 1:9]
+X_train <- as.data.frame(scale(X_train))
+y_test <- water_test$Potability
+X_test <- water_test[, 1:9]
+X_test <- as.data.frame(scale(X_test))
+baseline_accuracy <- length(y_test[ y_test == 0 ]) / length(y_test) 
+baseline_accuracy
+```
+
+```{r}
+set.seed(7)
+accuracies <- c() 
+for (k in 1:10) { # for each value of K between 1 and 10
+  knn <- knn( # train a KNN model 
+    train = X_train, 
+    test = X_test, 
+    cl = y_train, 
+    k = k
+  ) 
+  cm <- as.matrix(table(Actual = y_test, Predict = knn)) # get its confusion matrix 
+  accuracy <- sum(diag(cm)) / length(y_test) # derive its accuracy from its confusion matrix
+  accuracies <- append(accuracies, accuracy) # append its accuracy to the list 
+}
+plot( # plot the accuracy for each value of K 
+  x = 1:10, 
+  y = accuracies,
+  type = "l",
+  xlab = "K",
+  ylab = "Accuracy",
+  main = "KNN Accuracies"
+)
+```
+
+K = 7 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 7 and calculate its confusion matrix. 
+
+```{r}
+knn <- knn(
+  train = X_train,
+  test = X_test, 
+  cl = y_train, 
+  k = 7
+)
+cm <- as.matrix(table(Actual = y_test, Predicted = knn))
+cm <- addmargins(A = cm, FUN = list(Total = sum), quiet = TRUE)
+cm
+```
+
+Let's use the confusion matrix to derive performance metrics. 
+```{r}
+GT <- cm[3, 3] # grand total 
+TP <- cm[2, 2] # true positives
+TN <- cm[1, 1] # true negatives
+FP <- cm[1, 2] # false positives 
+FN <- cm[2, 1] # false negatives
+TAP <- cm[2, 3] # total actual positives 
+TAN <- cm[1, 3] # total actual negatives 
+TPP <- cm[3, 2] # total predicted positives 
+TPN <- cm[3, 1] # total predicted negatives 
+```
+
+```{r}
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+recall <- TP / TAP 
+specificity <- TN / TAN 
+F1_score <- 2 * (precision * recall) / (precision + recall)
+accuracy
+precision
+recall 
+specificity 
+F1_score
+```
+
+The model performs better when outliers are included. 
+
+#### Decision Tree Cart & C5.0
+
+#Splitting into training and test data (80:20 ratio)
+
+```{r}
+set.seed(7)
+n <- dim(water_clean)[1]
+water_ind <- runif(n) < 0.80
+water_train <- water_clean[ water_ind, ]
+water_test <- water_clean[ !water_ind, ]
+#Checking how many records(rows) in training and test data set
+table(water_train$Potability)
+```
+
+#?Balancing training data set
+
+```{r}
+table(water_train$Potability)
+to.resample <- which(water_train$Potability == "1")
+our.resample <- sample(x=to.resample, size =  , replace = TRUE)
+```
+
+#Getting Gini Impurity for Decision Tree
+
+```{r}
+gini(water_train$ph)   #1
+gini(water_train$Hardness)  #2
+gini(water_train$Solids)  #3
+gini(water_train$Chloramines)  #4
+gini(water_train$Sulfate)  #5
+gini(water_train$Conductivity)  #6 
+gini(water_train$Organic_carbon)  #7
+gini(water_train$Trihalomethanes)  #8
+gini(water_train$Turbidity)  #9
+```
+
+#Sulfate has lowest Gini (0.058)
+
+```{r}
+cart01 <- rpart(formula = Potability ~  ph + Hardness + Sulfate,  data=water_train, method = "class")
+rpart.plot(cart01)
+?rpart.plot
+rpart.plot(cart01, type = 4, extra = 4)
+```
+
+#Decision tree interpretation
+#Nodes are split by the sulfate, ph, and hardness (since they have lowest GINI index) among all other variables. 
+#39% of the training data set have sulfate level <258 which shows potability of water (1). Only 3% of the training data set. 
+#Another 97% has sulfate >258.  That node is then split again with sulfate level of 388. 
+#Sulfate < 388 and ph < 7.6 are still potable while ph > 7.6 falls into potability of 0.
+#Sulfate > 388, hardness < 162, ph >7 are potablility of 1.  
+
+#To obtain classifications for each record in data set using CART model
+
+```{r}
+X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
+predPotabilityCART = predict(object =cart01, newdata = X, type="class")
+```
+
+#Evaluating the model
+
+```{r}
+test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+ypred <- predict(object = cart01, newdata = test.X, type = "class")
+t1 <- table(water_test$Potability, ypred)
+row.names(t1) <- c("Actual:0", "Actual: 1")
+colnames(t1) <- c("Predicted: 0", "Predicted:1")
+t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
+```
+
+#Checking overrall statistics of model
+
+```{r}
+predicted.classes <- ypred
+observed.classes <- water_test$Potability
+accuracy <- mean(observed.classes == predicted.classes)
+accuracy
+predicted.classes <- factor(predicted.classes)
+observed.classes <- factor(observed.classes)
+confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes)
+confusionmatrix
+```
+
+#Testing out Pre-pruning to get better accuracy score
+
+```{r}
+print(cart01) #text version of tree
+printcp(cart01) 
+plotcp(cart01) #Plots multiple cp values with error - only works if using cross-validation (xval > 0)
+```
+
+#pre-pruning
+
+```{r}
+# Grow a tree with minsplit of 100 and max depth of 8
+cart01_preprun <- rpart(formula = Potability ~  ph + Sulfate + Hardness,  data=water_train, method = "class", control = rpart.control(cp = 0, maxdepth = 8,minsplit = 100))
+printcp(cart01_preprun)
+rpart.plot(cart01_preprun)
+?rpart.plot
+rpart.plot(cart01_preprun, type = 4, extra = 2)
+```
+
+#To obtain classifications for each record in data set using CART model
+
+```{r}
+X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
+predPotabilityCART = predict(object =cart01, newdata = X, type="class")
+```
+
+#Evaluating the model
+
+```{r}
+test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+ypred <- predict(object = cart01, newdata = test.X, type = "class")
+t1 <- table(water_test$Potability, ypred)
+row.names(t1) <- c("Actual:0", "Actual: 1")
+colnames(t1) <- c("Predicted: 0", "Predicted:1")
+t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
+```
+
+#prepruning accuracy
+
+```{r}
+# Compute the accuracy of the pruned tree
+ypred_prun <- predict(object = cart01_preprun, newdata = test.X, type = "class")
+predicted.classes_prun <- ypred_prun
+observed.classes_prun <- water_test$Potability
+accuracy_prun <- mean(observed.classes == predicted.classes_prun)
+accuracy_prun
+```
+
+#Decision tree using C5.0
+
+```{r}
+water_train$Potability <- factor(water_train$Potability)
+C5 <- C5.0(formula = Potability ~ Sulfate + Hardness + ph ,  data=water_train, control = C5.0Control(minCases=75))
+plot(C5)
+```
+
+#To obtain classifications for each record in data set using CART model
+
+```{r}
+X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
+predict(object = C5, newdata = X)
+```
+
+#Evaluating the model
+
+```{r}
+test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+ypred <- predict(object = C5, newdata = test.X, type = "class")
+t1 <- table(water_test$Potability, ypred)
+row.names(t1) <- c("Actual:0", "Actual: 1")
+colnames(t1) <- c("Predicted: 0", "Predicted:1")
+t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
+```
+
+#Checking overrall statistics of model
+
+```{r}
+predicted.classes <- ypred
+observed.classes <- water_test$Potability
+accuracy <- mean(observed.classes == predicted.classes)
+accuracy
+predicted.classes <- factor(predicted.classes)
+observed.classes <- factor(observed.classes)
+confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes)
+confusionmatrix
 ```
