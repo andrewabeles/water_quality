@@ -1,0 +1,194 @@
+---
+title: "Water Potability"
+author: "Jake Burnett"
+date: "7/31/2021"
+output: pdf_document
+---
+
+#### *Insert Description and Details of Project*
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import Libraries and Dataset
+```{r}
+#Graph
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+```
+
+### Import Dataset
+```{r}
+water <- water_potability <- read.csv("~/Downloads/water_potability.csv")
+summary(water)
+```
+```{r}
+colSums(is.na(water))
+```
+```{r}
+#Check central tendency for variables with missing values
+summary(water)
+```
+```{r replace missing values with means}
+water$Sulfate[is.na(water$Sulfate)] <- mean(water$Sulfate,na.rm=TRUE)
+water$Trihalomethanes[is.na(water$Trihalomethanes)] <- mean(water$Trihalomethanes,na.rm=TRUE)
+water$ph[is.na(water$ph)] <- mean(water$ph,na.rm=TRUE)
+water_clean$Potability <- as.factor(water_clean$Potability)
+```
+```{r ph boxplot}
+boxplot(ph~Potability,data=water, main="Potability and ph", xlab="Potability", ylab="ph")
+```
+```{r Hardness boxplot}
+boxplot(Hardness~Potability,data=water, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
+```
+```{r Solids boxplot}
+boxplot(Solids~Potability,data=water, main="Potability and Solids", xlab="Potability", ylab="Solids")
+```
+```{r Chloramines boxplot}
+boxplot(Chloramines~Potability,data=water, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
+```
+```{r Sulfate boxplot}
+boxplot(Sulfate~Potability,data=water, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
+```
+```{r Conductivity boxplot}
+boxplot(Conductivity~Potability,data=water, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
+```
+```{r Orangic_Carbon boxplot}
+boxplot(Organic_carbon~Potability,data=water, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
+```
+```{r Trihalomethanes boxplot}
+boxplot(Trihalomethanes~Potability,data=water, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
+```
+```{r Turbidity boxplot}
+boxplot(Turbidity~Potability,data=water, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
+```
+```{r}
+set.seed(7)
+```
+```{r}
+n <- dim(water)[1]
+```
+```{r}
+water_ind <- runif(n) < 0.8
+```
+```{r}
+water_train <- water[ water_ind, ]
+water_test <- water[ !water_ind, ]
+```
+```{r}
+logreg01 <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train, family = binomial)
+summary(logreg01)
+```
+```{r}
+logreg01_test <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test, family = binomial)
+summary(logreg01_test)
+```
+```{r}
+logreg02 <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train, family = binomial)
+summary(logreg02)
+```
+```{r}
+logreg02_test <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test, family = binomial)
+summary(logreg02_test)
+```
+```{r}
+entry01 <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+predict(object = logreg02, newdata = entry01)
+```
+```{r}
+water_clean <- water
+water_clean$Index <- 1:nrow(water_clean)
+z <- function(x, m, sd) { # transforms a single value into its z-score
+  return((x - m) / sd)}
+is_outlier <- function(x, m, sd) { # determines whether a single value is an outlier
+  z <- z(x, m, sd)
+  return(abs(z) > 3)}
+outliers <- function(v) { # returns a boolean mask indicating which values in the vector are outliers
+  m <- mean(v, na.rm = TRUE)
+  sd <- sd(v, na.rm = TRUE)
+  return(lapply(v, is_outlier, m=m, sd=sd))}
+```
+```{r}
+outlier_indices <- c() # vector to store outlier indices 
+for (col in colnames(water_clean[, 1:9])) { # for each predictor column 
+  v <- unlist(water_clean[c(col)]) # unlist and call it v 
+  indices <- filter(water_clean, outliers(v) == TRUE)[c('Index')] # get its outliers' indices 
+  outlier_indices <- c(outlier_indices, indices) # append them to the global vector of outlier indices
+}
+outlier_indices <- unlist(outlier_indices) # flatten the list of lists into a simple vector 
+water_clean$Outlier <- water_clean$Index %in% outlier_indices # use the indices to create an outlier indicator column 
+water_clean_outliers <- filter(water_clean, Outlier == TRUE)
+water_clean_no_outliers <- filter(water_clean, Outlier == FALSE)
+water_clean_outliers
+```
+```{r}
+water_clean_no_outliers
+```
+```{r ph boxplot no}
+boxplot(ph~Potability,data=water_clean_no_outliers, main="Potability and ph", xlab="Potability", ylab="ph")
+```
+```{r Hardness boxplot no}
+boxplot(Hardness~Potability,data=water_clean_no_outliers, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
+```
+```{r Solids boxplot no}
+boxplot(Solids~Potability,data=water_clean_no_outliers, main="Potability and Solids", xlab="Potability", ylab="Solids")
+```
+```{r Chloramines boxplot no}
+boxplot(Chloramines~Potability,data=water_clean_no_outliers, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
+```
+```{r Sulfate boxplot no}
+boxplot(Sulfate~Potability,data=water_clean_no_outliers, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
+```
+```{r Conductivity boxplot no}
+boxplot(Conductivity~Potability,data=water_clean_no_outliers, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
+```
+```{r Orangic_Carbon boxplot no}
+boxplot(Organic_carbon~Potability,data=water_clean_no_outliers, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
+```
+```{r Trihalomethanes boxplot no}
+boxplot(Trihalomethanes~Potability,data=water_clean_no_outliers, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
+```
+```{r Turbidity boxplot no}
+boxplot(Turbidity~Potability,data=water_clean_no_outliers, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
+```
+```{r}
+set.seed(7)
+```
+```{r}
+n <- dim(water_clean_no_outliers)[1]
+```
+```{r}
+water_ind_no_outliers <- runif(n) < 0.8
+```
+```{r}
+water_train_no_outliers <- water_clean_no_outliers[ water_ind_no_outliers, ]
+water_test_no_outliers <- water_clean_no_outliers[ !water_ind_no_outliers, ]
+```
+```{r}
+logreg01_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train_no_outliers, family = binomial)
+summary(logreg01_no_outliers)
+```
+```{r}
+logreg01_test_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test_no_outliers, family = binomial)
+summary(logreg01_test_no_outliers)
+```
+```{r}
+logreg02_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train_no_outliers, family = binomial)
+summary(logreg02_no_outliers)
+```
+```{r}
+logreg02_test_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test_no_outliers, family = binomial)
+summary(logreg02_test_no_outliers)
+```
+```{r}
+entry01_no_outliers <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+predict(object = logreg02_no_outliers, newdata = entry01_no_outliers)
+```
+
+
+
