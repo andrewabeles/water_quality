@@ -191,12 +191,7 @@ water_test <- water[ !water_ind, ]
 
 table(water_train$Potability)
 ```
-#?Balancing training data set
-```{r}
-table(water_train$Potability)
-to.resample <- which(water_train$Potability == "1")
-our.resample <- sample(x=to.resample, size =  , replace = TRUE)
-```
+
 #Getting Gini Impurity for Decision Tree
 
 ```{r}
@@ -322,8 +317,27 @@ observed.classes_prun <- water_test$Potability
 accuracy_prun <- mean(observed.classes == predicted.classes_prun)
 accuracy_prun
 
+```{r}
+
+# Compute the accuracy of the pruned tree
+
+ypred_prun <- predict(object = cart01_preprun, newdata = test.X, type = "class")
+
+predicted.classes_prun <- ypred_prun
+observed.classes_prun <- water_test$Potability
+accuracy_prun <- mean(observed.classes == predicted.classes_prun)
+accuracy_prun
+
+
+predicted.classes_prun <- factor(predicted.classes_prun)
+observed.classes_prun <- factor(observed.classes_prun)
+
+confusionmatrix_prun <- confusionMatrix(data=predicted.classes_prun, reference = observed.classes_prun)
+
+confusionmatrix_prun
 
 ```
+
 
 #Decision tree using C5.0
 
