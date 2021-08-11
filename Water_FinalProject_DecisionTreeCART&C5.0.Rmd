@@ -215,8 +215,7 @@ gini(water_train$Turbidity)  #9
 ```{r}
 library(rpart)
 library(rpart.plot)
-cart01 <- rpart(formula = Potability ~  ph + Hardness + Solids  +   Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, 
-data=water_train, method = "class")
+cart01 <- rpart(formula = Potability ~  ph + Hardness + Sulfate,  data=water_train, method = "class")
 rpart.plot(cart01)
 ?rpart.plot
 rpart.plot(cart01, type = 4, extra = 4)
@@ -278,7 +277,7 @@ plotcp(cart01) #Plots multiple cp values with error - only works if using cross-
 
 # Grow a tree with minsplit of 100 and max depth of 8
 
-cart01_preprun <- rpart(formula = Potability ~   Sulfate + Hardness + Conductivity + Turbidity + ph + Chloramines + Organic_carbon, data=water_train, method = "class", control = rpart.control(cp = 0, maxdepth = 8,minsplit = 100))
+cart01_preprun <- rpart(formula = Potability ~  ph + Sulfate + Hardness,  data=water_train, method = "class", control = rpart.control(cp = 0, maxdepth = 8,minsplit = 100))
 
 printcp(cart01_preprun)
 rpart.plot(cart01_preprun)
@@ -311,7 +310,7 @@ t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
 
 
 ```
-#preprun accuracy
+#prepruning accuracy
 ```{r}
 
 # Compute the accuracy of the pruned tree
@@ -332,7 +331,7 @@ accuracy_prun
 
 library(C50)
 water_train$Potability <- factor(water_train$Potability)
-C5 <- C5.0(formula = Potability ~ Sulfate + Hardness + Conductivity + Turbidity + ph + Chloramines + Organic_carbon,  data=water_train, control = C5.0Control(minCases=75))
+C5 <- C5.0(formula = Potability ~ Sulfate + Hardness + ph ,  data=water_train, control = C5.0Control(minCases=75))
 plot(C5)
 ```
 #To obtain classifications for each record in data set using CART model
