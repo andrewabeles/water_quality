@@ -1,0 +1,77 @@
+---
+title: "Water Potability"
+author: "Jake Burnett"
+date: "7/31/2021"
+output: pdf_document
+---
+
+#### *Insert Description and Details of Project*
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import Libraries and Dataset
+```{r}
+#Graph
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+```
+
+### Import Dataset
+```{r}
+water <- water_potability <- read.csv("~/Downloads/water_potability.csv")
+summary(water)
+```
+```{r}
+colSums(is.na(water))
+```
+```{r}
+#Check central tendency for variables with missing values
+summary(water)
+```
+```{r}
+#The means and medians of Sulfate and Trihalomethanes were close enough together that I believe replacing those missing values with the mean will be sufficient
+water$Sulfate[is.na(water$Sulfate)] <- mean(water$Sulfate,na.rm=TRUE)
+water$Trihalomethanes[is.na(water$Trihalomethanes)] <- mean(water$Trihalomethanes,na.rm=TRUE)
+```
+```{r}
+#Because we were able to keep the missing values of the other two variables and the mean and median of ph were not as close together proportionally, rows with missing values were omitted
+water_clean <- na.omit(water)
+```
+```{r}
+head(water_clean)
+```
+```{r ph boxplot}
+boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
+```
+```{r Hardness boxplot}
+boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
+```
+```{r Solids boxplot}
+boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
+```
+```{r Chloramines boxplot}
+boxplot(Chloramines~Potability,data=water_clean, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
+```
+```{r Sulfate boxplot}
+boxplot(Sulfate~Potability,data=water_clean, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
+```
+```{r Conductivity boxplot}
+boxplot(Conductivity~Potability,data=water_clean, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
+```
+```{r Orangic_Carbon boxplot}
+boxplot(Organic_carbon~Potability,data=water_clean, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
+```
+```{r Trihalomethanes boxplot}
+boxplot(Trihalomethanes~Potability,data=water_clean, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
+```
+```{r Turbidity boxplot}
+boxplot(Turbidity~Potability,data=water_clean, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
+```
+
+

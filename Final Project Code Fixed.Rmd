@@ -1,0 +1,204 @@
+---
+title: "Water Potability"
+author: "Jake Burnett"
+date: "7/31/2021"
+output: pdf_document
+---
+
+#### *Insert Description and Details of Project*
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import Libraries and Dataset
+```{r}
+#Graph
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(e1071)
+```
+
+### Import Dataset
+```{r}
+water <- water_potability <- read.csv("~/Downloads/water_potability.csv")
+summary(water)
+```
+```{r}
+colSums(is.na(water))
+```
+```{r}
+#Check central tendency for variables with missing values
+summary(water)
+```
+```{r replace missing values with means}
+water$Sulfate[is.na(water$Sulfate)] <- mean(water$Sulfate,na.rm=TRUE)
+water$Trihalomethanes[is.na(water$Trihalomethanes)] <- mean(water$Trihalomethanes,na.rm=TRUE)
+water$ph[is.na(water$ph)] <- mean(water$ph,na.rm=TRUE)
+water_clean$Potability <- as.factor(water_clean$Potability)
+```
+```{r}
+set.seed(7)
+```
+```{r}
+n <- dim(water)[1]
+```
+```{r}
+water_ind <- runif(n) < 0.8
+```
+```{r}
+water_train <- water[ water_ind, ]
+water_test <- water[ !water_ind, ]
+```
+```{r}
+logreg01 <- glm(Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train, family = binomial)
+summary(logreg01)
+```
+```{r}
+logreg01_test <- glm(Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test, family = binomial)
+summary(logreg01_test)
+```
+```{r}
+logreg02 <- glm(Potability ~ Solids + Organic_carbon, data = water_train, family = binomial(link = "logit"))
+summary(logreg02)
+```
+```{r}
+logreg02_test <- glm(Potability ~ Solids + Organic_carbon, data = water_test, family = binomial)
+summary(logreg02_test)
+```
+```{r}
+entry01 <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+predict(object = logreg02, newdata = entry01)
+```
+```{r}
+predicted <- predict(logreg02, newdata = water_test, type = "response")
+```
+```{r}
+table(water_test$Potability)
+```
+```{r}
+cmatrix <- table(water_test$Potability, predicted < 0.378)
+cmatrix <- addmargins(A = cmatrix, FUN = list(Total = sum), quiet = TRUE)
+cmatrix
+```
+```{r}
+GT <- cmatrix[3, 3]
+TP <- cmatrix[2, 2]
+TN <- cmatrix[1, 1]
+FP <- cmatrix[1, 2]
+FN <- cmatrix[2, 1]
+TAP <- cmatrix[2, 3]
+TAN <- cmatrix[1, 3]
+TPP <- cmatrix[3, 2]
+TPN <- cmatrix[3, 1]
+```
+```{r}
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+sensitivity <- TP / TAP
+specificity <- TN / TAN
+accuracy
+precision
+sensitivity
+specificity
+```
+```{r}
+water_clean <- water
+water_clean$Index <- 1:nrow(water_clean)
+z <- function(x, m, sd) { # transforms a single value into its z-score
+  return((x - m) / sd)}
+is_outlier <- function(x, m, sd) { # determines whether a single value is an outlier
+  z <- z(x, m, sd)
+  return(abs(z) > 3)}
+outliers <- function(v) { # returns a boolean mask indicating which values in the vector are outliers
+  m <- mean(v, na.rm = TRUE)
+  sd <- sd(v, na.rm = TRUE)
+  return(lapply(v, is_outlier, m=m, sd=sd))}
+```
+```{r}
+outlier_indices <- c() # vector to store outlier indices 
+for (col in colnames(water_clean[, 1:9])) { # for each predictor column 
+  v <- unlist(water_clean[c(col)]) # unlist and call it v 
+  indices <- filter(water_clean, outliers(v) == TRUE)[c('Index')] # get its outliers' indices 
+  outlier_indices <- c(outlier_indices, indices) # append them to the global vector of outlier indices
+}
+outlier_indices <- unlist(outlier_indices) # flatten the list of lists into a simple vector 
+water_clean$Outlier <- water_clean$Index %in% outlier_indices # use the indices to create an outlier indicator column 
+water_clean_outliers <- filter(water_clean, Outlier == TRUE)
+water_clean_no_outliers <- filter(water_clean, Outlier == FALSE)
+water_clean_outliers
+```
+```{r}
+water_clean_no_outliers
+```
+```{r}
+set.seed(7)
+```
+```{r}
+n <- dim(water_clean_no_outliers)[1]
+```
+```{r}
+water_ind_no_outliers <- runif(n) < 0.8
+```
+```{r}
+water_train_no_outliers <- water_clean_no_outliers[ water_ind_no_outliers, ]
+water_test_no_outliers <- water_clean_no_outliers[ !water_ind_no_outliers, ]
+```
+```{r}
+logreg01_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train_no_outliers, family = binomial)
+summary(logreg01_no_outliers)
+```
+```{r}
+logreg01_test_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test_no_outliers, family = binomial)
+summary(logreg01_test_no_outliers)
+```
+```{r}
+logreg02_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train_no_outliers, family = binomial)
+summary(logreg02_no_outliers)
+```
+```{r}
+logreg02_test_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test_no_outliers, family = binomial)
+summary(logreg02_test_no_outliers)
+```
+```{r}
+entry01_no_outliers <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+predict(object = logreg02_no_outliers, newdata = entry01_no_outliers)
+```
+```{r}
+predicted_no_outliers <- predict(logreg02_no_outliers, newdata = water_test_no_outliers, type = "response")
+```
+```{r}
+table(water_test_no_outliers$Potability)
+```
+```{r}
+cmatrix_no_outliers <- table(water_test_no_outliers$Potability, predicted_no_outliers < 0.378)
+cmatrix_no_outliers <- addmargins(A = cmatrix_no_outliers, FUN = list(Total = sum), quiet = TRUE)
+cmatrix_no_outliers
+```
+```{r}
+GT_no_outliers <- cmatrix_no_outliers[3, 3]
+TP_no_outliers <- cmatrix_no_outliers[2, 2]
+TN_no_outliers <- cmatrix_no_outliers[1, 1]
+FP_no_outliers <- cmatrix_no_outliers[1, 2]
+FN_no_outliers <- cmatrix_no_outliers[2, 1]
+TAP_no_outliers <- cmatrix_no_outliers[2, 3]
+TAN_no_outliers <- cmatrix_no_outliers[1, 3]
+TPP_no_outliers <- cmatrix_no_outliers[3, 2]
+TPN_no_outliers <- cmatrix_no_outliers[3, 1]
+```
+```{r}
+accuracy_no_outliers <- (TP_no_outliers + TN_no_outliers) / GT_no_outliers
+precision_no_outliers <- TP_no_outliers / TPP_no_outliers
+sensitivity_no_outliers <- TP_no_outliers / TAP_no_outliers
+specificity_no_outliers <- TN_no_outliers / TAN_no_outliers
+accuracy_no_outliers
+precision_no_outliers
+sensitivity_no_outliers
+specificity_no_outliers
+```
+
