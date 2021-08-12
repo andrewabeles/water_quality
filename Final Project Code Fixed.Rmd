@@ -20,6 +20,8 @@ library(dplyr)
 library(tidyverse)
 library(rpart)
 library(rpart.plot)
+library(caret)
+library(e1071)
 ```
 
 ### Import Dataset
@@ -40,33 +42,6 @@ water$Trihalomethanes[is.na(water$Trihalomethanes)] <- mean(water$Trihalomethane
 water$ph[is.na(water$ph)] <- mean(water$ph,na.rm=TRUE)
 water_clean$Potability <- as.factor(water_clean$Potability)
 ```
-```{r ph boxplot}
-boxplot(ph~Potability,data=water, main="Potability and ph", xlab="Potability", ylab="ph")
-```
-```{r Hardness boxplot}
-boxplot(Hardness~Potability,data=water, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
-```
-```{r Solids boxplot}
-boxplot(Solids~Potability,data=water, main="Potability and Solids", xlab="Potability", ylab="Solids")
-```
-```{r Chloramines boxplot}
-boxplot(Chloramines~Potability,data=water, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
-```
-```{r Sulfate boxplot}
-boxplot(Sulfate~Potability,data=water, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
-```
-```{r Conductivity boxplot}
-boxplot(Conductivity~Potability,data=water, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
-```
-```{r Orangic_Carbon boxplot}
-boxplot(Organic_carbon~Potability,data=water, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
-```
-```{r Trihalomethanes boxplot}
-boxplot(Trihalomethanes~Potability,data=water, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
-```
-```{r Turbidity boxplot}
-boxplot(Turbidity~Potability,data=water, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
-```
 ```{r}
 set.seed(7)
 ```
@@ -81,24 +56,56 @@ water_train <- water[ water_ind, ]
 water_test <- water[ !water_ind, ]
 ```
 ```{r}
-logreg01 <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train, family = binomial)
+logreg01 <- glm(Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train, family = binomial)
 summary(logreg01)
 ```
 ```{r}
-logreg01_test <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test, family = binomial)
+logreg01_test <- glm(Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test, family = binomial)
 summary(logreg01_test)
 ```
 ```{r}
-logreg02 <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train, family = binomial)
+logreg02 <- glm(Potability ~ Solids + Organic_carbon, data = water_train, family = binomial(link = "logit"))
 summary(logreg02)
 ```
 ```{r}
-logreg02_test <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test, family = binomial)
+logreg02_test <- glm(Potability ~ Solids + Organic_carbon, data = water_test, family = binomial)
 summary(logreg02_test)
 ```
 ```{r}
 entry01 <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
 predict(object = logreg02, newdata = entry01)
+```
+```{r}
+predicted <- predict(logreg02, newdata = water_test, type = "response")
+```
+```{r}
+table(water_test$Potability)
+```
+```{r}
+cmatrix <- table(water_test$Potability, predicted < 0.378)
+cmatrix <- addmargins(A = cmatrix, FUN = list(Total = sum), quiet = TRUE)
+cmatrix
+```
+```{r}
+GT <- cmatrix[3, 3]
+TP <- cmatrix[2, 2]
+TN <- cmatrix[1, 1]
+FP <- cmatrix[1, 2]
+FN <- cmatrix[2, 1]
+TAP <- cmatrix[2, 3]
+TAN <- cmatrix[1, 3]
+TPP <- cmatrix[3, 2]
+TPN <- cmatrix[3, 1]
+```
+```{r}
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+sensitivity <- TP / TAP
+specificity <- TN / TAN
+accuracy
+precision
+sensitivity
+specificity
 ```
 ```{r}
 water_clean <- water
@@ -128,33 +135,6 @@ water_clean_outliers
 ```
 ```{r}
 water_clean_no_outliers
-```
-```{r ph boxplot no}
-boxplot(ph~Potability,data=water_clean_no_outliers, main="Potability and ph", xlab="Potability", ylab="ph")
-```
-```{r Hardness boxplot no}
-boxplot(Hardness~Potability,data=water_clean_no_outliers, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
-```
-```{r Solids boxplot no}
-boxplot(Solids~Potability,data=water_clean_no_outliers, main="Potability and Solids", xlab="Potability", ylab="Solids")
-```
-```{r Chloramines boxplot no}
-boxplot(Chloramines~Potability,data=water_clean_no_outliers, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
-```
-```{r Sulfate boxplot no}
-boxplot(Sulfate~Potability,data=water_clean_no_outliers, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
-```
-```{r Conductivity boxplot no}
-boxplot(Conductivity~Potability,data=water_clean_no_outliers, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
-```
-```{r Orangic_Carbon boxplot no}
-boxplot(Organic_carbon~Potability,data=water_clean_no_outliers, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
-```
-```{r Trihalomethanes boxplot no}
-boxplot(Trihalomethanes~Potability,data=water_clean_no_outliers, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
-```
-```{r Turbidity boxplot no}
-boxplot(Turbidity~Potability,data=water_clean_no_outliers, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
 ```
 ```{r}
 set.seed(7)
@@ -189,6 +169,36 @@ summary(logreg02_test_no_outliers)
 entry01_no_outliers <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
 predict(object = logreg02_no_outliers, newdata = entry01_no_outliers)
 ```
-
-
+```{r}
+predicted_no_outliers <- predict(logreg02_no_outliers, newdata = water_test_no_outliers, type = "response")
+```
+```{r}
+table(water_test_no_outliers$Potability)
+```
+```{r}
+cmatrix_no_outliers <- table(water_test_no_outliers$Potability, predicted_no_outliers < 0.378)
+cmatrix_no_outliers <- addmargins(A = cmatrix_no_outliers, FUN = list(Total = sum), quiet = TRUE)
+cmatrix_no_outliers
+```
+```{r}
+GT_no_outliers <- cmatrix_no_outliers[3, 3]
+TP_no_outliers <- cmatrix_no_outliers[2, 2]
+TN_no_outliers <- cmatrix_no_outliers[1, 1]
+FP_no_outliers <- cmatrix_no_outliers[1, 2]
+FN_no_outliers <- cmatrix_no_outliers[2, 1]
+TAP_no_outliers <- cmatrix_no_outliers[2, 3]
+TAN_no_outliers <- cmatrix_no_outliers[1, 3]
+TPP_no_outliers <- cmatrix_no_outliers[3, 2]
+TPN_no_outliers <- cmatrix_no_outliers[3, 1]
+```
+```{r}
+accuracy_no_outliers <- (TP_no_outliers + TN_no_outliers) / GT_no_outliers
+precision_no_outliers <- TP_no_outliers / TPP_no_outliers
+sensitivity_no_outliers <- TP_no_outliers / TAP_no_outliers
+specificity_no_outliers <- TN_no_outliers / TAN_no_outliers
+accuracy_no_outliers
+precision_no_outliers
+sensitivity_no_outliers
+specificity_no_outliers
+```
 
