@@ -1,0 +1,212 @@
+---
+title: "ADS502_Data Mining Group Project"
+output: html_notebook
+---
+
+```{r}
+pacman::p_load(ggplot2,ggthemes,dplyr,mice,randomForest,readr,tidyverse,GGally,VIM,ggcorrplot,moments,caret,ggpubr)
+
+water <- read.delim("/Users/emmaoo/Desktop/water_potability.csv",header = TRUE, sep = ",")
+str(water)
+water
+length(water)
+```
+
+```{r}
+colSums(is.na(water))
+```
+#Checking ph varible
+```{r}
+summary(water$ph)
+hist(water$ph)
+```
+#Since ph numbers are between scale (1-14) and no outliers observed, replace all the missing values with mean
+```{r}
+water$ph[is.na(water$ph)]<-mean(water$ph,na.rm=TRUE)
+```
+
+#Checking Sulfate variable
+```{r}
+summary(water$Sulfate)
+hist(water$Sulfate)
+```
+#Since sulfate level numbers from min, 1st qu, 2nd qu, 3rd qu, and max are not that much different from each other, replace missing values with mean values
+```{r}
+water$Sulfate[is.na(water$Sulfate)]<-mean(water$Sulfate,na.rm=TRUE)
+```
+
+#Checking Trihalomethanes Varialbe
+```{r}
+summary(water$Trihalomethane)
+hist(water$Trihalomethane)
+```
+
+```{r}
+water$Trihalomethanes[is.na(water$Trihalomethanes)]<-mean(water$Trihalomethanes,na.rm=TRUE)
+```
+
+#Double-checking missing values after data clean-up
+```{r}
+colSums(is.na(water))
+```
+#Outlier for ph
+```{r}
+#filtering out ph values outside from 2.5% and 97.5% percentiles
+lower_bound_ph <- quantile(water$ph, 0.025)
+lower_bound_ph
+
+upper_bound_ph <- quantile(water$ph, 0.975)
+upper_bound_ph
+
+ph_out <- which(water$ph < lower_bound_ph | water$ph > upper_bound_ph)
+ph_out
+length(ph_out)
+```
+#Outliers for Hardness
+```{r}
+#filtering out Hardness values outside from 2.5% and 97.5% percentiles
+lower_bound_Hardness <- quantile(water$Hardness, 0.025)
+lower_bound_Hardness
+
+upper_bound_Hardness <- quantile(water$Hardness, 0.975)
+upper_bound_Hardness
+
+Hardness_out <- which(water$Hardness < lower_bound_Hardness | water$Hardness > upper_bound_Hardness)
+length(Hardness_out)
+
+```
+#Outliers for Solids
+```{r}
+#filtering out Solids values outside from 2.5% and 97.5% percentiles
+lower_bound_sol <- quantile(water$Solids, 0.025)
+lower_bound_sol
+
+upper_bound_sol <- quantile(water$Solids, 0.975)
+upper_bound_sol
+
+sol_out <- which(water$Solids < lower_bound_sol | water$Solids > upper_bound_sol)
+
+length(sol_out)
+```
+
+```{r}
+#filtering out Sulfates values outside from 2.5% and 97.5% percentiles
+lower_bound_Sul <- quantile(water$Sulfate, 0.025)
+lower_bound_Sul
+
+upper_bound_Sul <- quantile(water$Sulfate, 0.975)
+upper_bound_Sul
+
+outlier_ind_Sul <- which(water$Sulfate < lower_bound_Sul | water$Sulfate > upper_bound_Sul)
+
+outlier_ind_Sul
+length(outlier_ind_Sul)
+```
+
+```{r}
+#Checking no of outliers for Conductivity values outside from 2.5% and 97.5% percentiles
+lower_bound_Con <- quantile(water$Conductivity, 0.025)
+lower_bound_Con
+
+upper_bound_Con <- quantile(water$Conductivity, 0.975)
+upper_bound_Con
+
+outlier_ind_Con <- which(water$Conductivity < lower_bound_Con | water$Conductivity > upper_bound_Con)
+
+outlier_ind_Con
+length(outlier_ind_Con)
+```
+```{r}
+#Checking no of outliers for Organic Carbon values outside from 2.5% and 97.5% percentiles
+lower_bound_OC <- quantile(water$Organic_carbon, 0.025)
+lower_bound_OC
+
+upper_bound_OC <- quantile(water$Organic_carbon, 0.975)
+upper_bound_OC
+
+outlier_ind_OC <- which(water$Organic_carbon < lower_bound_OC | water$Organic_carbon > upper_bound_OC)
+
+outlier_ind_OC
+length(outlier_ind_OC)
+```
+```{r}
+#Checking no of outliers for Conductivity values outside from 2.5% and 97.5% percentiles
+lower_bound_Con <- quantile(water$Conductivity, 0.025)
+lower_bound_Con
+
+upper_bound_Con <- quantile(water$Conductivity, 0.975)
+upper_bound_Con
+
+outlier_ind_Con <- which(water$Conductivity < lower_bound_Con | water$Conductivity > upper_bound_Con)
+
+outlier_ind_Con
+length(outlier_ind_Con)
+```
+
+```{r}
+#Checking no of outliers for Turbidity values outside from 2.5% and 97.5% percentiles
+lower_bound_Tur <- quantile(water$Turbidity, 0.025)
+lower_bound_Tur
+
+upper_bound_Tur <- quantile(water$Turbidity, 0.975)
+upper_bound_Tur
+
+outlier_ind_Tur <- which(water$Turbidity < lower_bound_Tur | water$Turbidity > upper_bound_Tur)
+
+outlier_ind_Tur
+length(outlier_ind_Tur)
+```
+```{r}
+#Checking no of outliers for Conductivity values outside from 2.5% and 97.5% percentiles
+lower_bound_OC <- quantile(water$Organic_carbon, 0.025)
+lower_bound_OC
+
+upper_bound_OC <- quantile(water$Organic_carbon, 0.975)
+upper_bound_OC
+
+outlier_ind_OC <- which(water$Organic_carbon < lower_bound_OC | water$Organic_carbon > upper_bound_OC)
+
+outlier_ind_OC
+length(outlier_ind_OC)
+```
+
+```{r}
+#Checking no of outliers for Conductivity values outside from 2.5% and 97.5% percentiles
+lower_bound_Tri <- quantile(water$Trihalomethanes, 0.025)
+lower_bound_Tri
+
+upper_bound_Tri <- quantile(water$Trihalomethanes, 0.975)
+upper_bound_Tri
+
+outlier_ind_Tri <- which(water$Trihalomethanes < lower_bound_Tri | water$Trihalomethanes > upper_bound_Tri)
+
+outlier_ind_Tri
+length(outlier_ind_Tri)
+```
+```{r}
+#THERE WERE AROUND 5% OUTLIERS IN THE WHOLE DATA SET. 
+
+#Checking skewness of variables
+```{r}
+skewness(water[,-10])
+```
+#Visualization of dataset with histograms
+#Overall, most variables are most evenly distruibuted with negelectible skewness like the numbers mentioned above.   
+#For potability, ess potability (1) than 0.
+
+```{r}
+# Multiple histograms
+par(mfrow=c(3, 3))
+colnames <- dimnames(water)[[2]]
+for (i in 2:8) {
+    hist(water[,i],main=colnames[i], probability=TRUE, col="blue", border="white")
+}
+
+
+```
+#Correlations
+```{r}
+correlation <- cor(water,use="pairwise", method="spearman")
+correlation
+ggcorrplot(correlation)
+```
