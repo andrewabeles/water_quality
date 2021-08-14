@@ -9,12 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Libraries and Dataset
+# Libraries and Dataset
 ```{r}
-#Import Libaries and Dataset
+#Import Libraries and Dataset
 
 library(ggplot2)
 library(GGally)
+library(plyr)
 library(dplyr)
 library(class)
 library(C50)
@@ -23,16 +24,20 @@ library(e1071)
 library(caret) 
 library(rpart)
 library(rpart.plot)
+library(pROC)
+library(devtools)
+library(ggeffects)
 ```
 
-## Import Dataset
+# Import Dataset
 ```{r}
 water <- read.csv('water_potability.csv')
 head(water)
 summary(water)
 ```
 
-## Data Cleaning
+# Data Cleaning
+
 ### Solve for Missing Variables
 #### There are three missing variables. 
 - ph: 491
@@ -51,24 +56,41 @@ colSums(is.na(water_clean))
 
 ```{r}
 #See if any variables are highly correlated. 
-ggcorr(water_clean[,-10], label = TRUE, label_alpha = TRUE, label_round = 2, hjust = 0.8)
+c <- ggcorr(water_clean[,-10], label = TRUE, label_alpha = TRUE, label_round = 2, hjust = 0.8)
+c + ggplot2::labs(title = 'Correlation Matrix')
 ```
 
 ```{r}
+#Visualize Distribution of Predictor Variables
 par(mfrow=c(3,4))
 colnames <- dimnames(water_clean)[[2]]
 for(i in 1:10) {hist(water_clean[,i], main = colnames[i], probability = TRUE, col = 'cornflowerblue', border = 'white')}
 ```
+No variables have significant correlation with one another. Each variable with missing values has a normal distribution. With this, the missing values were replaced with the mean.
 
 ```{r}
-#No variables have significant correlation with one another. Each variable with missing values has a normal distribution. With this, the missing values were replaced with the mean.
+#Replace with means
 
 water_clean$ph[is.na(water_clean$ph)] <- mean(water_clean$ph, na.rm = TRUE)
 water_clean$Sulfate[is.na(water_clean$Sulfate)] <- mean(water_clean$Sulfate, na.rm = TRUE)
 water_clean$Trihalomethanes[is.na(water_clean$Trihalomethanes)] <- mean(water_clean$Trihalomethanes, na.rm = TRUE)
 ```
 
-### Solve for Outliers
+```{r}
+#Boxplot visual to understand shape and search for outliers
+attach(water_clean)
+par(mfrow=c(3,3))
+boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
+boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
+boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
+boxplot(Chloramines~Potability,data=water_clean, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
+boxplot(Sulfate~Potability,data=water_clean, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
+boxplot(Conductivity~Potability,data=water_clean, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
+boxplot(Organic_carbon~Potability,data=water_clean, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
+boxplot(Trihalomethanes~Potability,data=water_clean, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
+boxplot(Turbidity~Potability,data=water_clean, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
+```
+## Solve for Outliers
 
 #### Identify Outliers
 ```{r}
@@ -106,11 +128,12 @@ water_clean_outliers
 There are 115 outliers.
 
 ```{r}
+#Potability Table
 t <- prop.table(table(water_clean$Potability, water_clean$Outlier))
 row.names(t) <- c('Not Potable', 'Potable')
 colnames(t) <- c('Not Outlier', 'Outlier')
 t <- addmargins(A = t, FUN = list(Total = sum), quiet = TRUE)
-t
+round(t,2)
 ```
 
 The 115 outliers make up 3.5% of the data set. The outliers' Potability class balance is almost the inverse of the non-outliers'.
@@ -120,30 +143,17 @@ The 115 outliers make up 3.5% of the data set. The outliers' Potability class ba
 colSums(is.na(water_clean))
 ```
 
-```{r}
-attach(water_clean)
-par(mfrow=c(3,3))
-boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
-boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
-boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
-boxplot(Chloramines~Potability,data=water_clean, main="Potability and Chloramines", xlab="Potability", ylab="Chloramines")
-boxplot(Sulfate~Potability,data=water_clean, main="Potability and Sulfate", xlab="Potability", ylab="Sulfate")
-boxplot(Conductivity~Potability,data=water_clean, main="Potability and Conductivity", xlab="Potability", ylab="Conductivity")
-boxplot(Organic_carbon~Potability,data=water_clean, main="Potability and Organic Carbon", xlab="Potability", ylab="Organic Carbon")
-boxplot(Trihalomethanes~Potability,data=water_clean, main="Potability and Trihalomethanes", xlab="Potability", ylab="Trihalomethanes")
-boxplot(Turbidity~Potability,data=water_clean, main="Potability and Turbidity", xlab="Potability", ylab="Turbidity")
-```
 
 #### Save as File
 ```{r}
 write.csv(df, "water_clean.csv", row.names = FALSE)
 ```
 
-### Models
+# Models
 
-#### K-Nearest Neighbor Classification 
+## K-Nearest Neighbor Classification 
 
-### Train Test Split (Including Outliers)
+#### Train Test Split (Including Outliers)
 ```{r}
 set.seed(7)
 n <- dim(water_clean)[1]
@@ -152,7 +162,7 @@ water_train <- water_clean[ idx, ]
 water_test <- water_clean[ !idx, ]
 ```
 
-### Scale Data (Including Outliers)
+#### Scale Data (Including Outliers)
 
 ```{r}
 y_train <- water_train$Potability
@@ -165,8 +175,7 @@ baseline_accuracy <- length(y_test[ y_test == 0 ]) / length(y_test)
 baseline_accuracy
 ```
 
-### Model
-#### KNN (Including Outliers)
+### KNN (Including Outliers)
 ```{r}
 set.seed(7)
 accuracies <- c() 
@@ -187,7 +196,7 @@ plot( # plot the accuracy for each value of K
   type = "l",
   xlab = "K",
   ylab = "Accuracy",
-  main = "KNN Accuracies"
+  main = "k-NN Accuracies"
 )
 ```
 
@@ -224,15 +233,33 @@ precision <- TP / TPP
 recall <- TP / TAP 
 specificity <- TN / TAN 
 F1_score <- 2 * (precision * recall) / (precision + recall)
-accuracy
-precision
-recall 
-specificity 
-F1_score
+round(accuracy,2)
+round(precision,2)
+round(recall,2) 
+round(specificity,2) 
+round(F1_score,2)
 ```
-#### KNN (Excluding Outliers)
 
-##### Train Test Split
+
+```{r}
+#Plot and Determine Area under Curve
+roc_knn <- class::knn(
+  train = X_train,
+  test = X_test, 
+  cl = y_train, 
+  k = 7, 
+  prob = TRUE
+)
+
+a <- attributes(roc_knn)$prob
+roc(y_test, a)
+
+plot(roc(y_test, a), print.auc = T, print.auc.y = 0.2, main = "k-NN AUC", legacy.axes = TRUE)
+```
+
+### KNN (Excluding Outliers)
+
+#### Train Test Split
 ```{r}
 water_clean_no_outliers <- filter(water_clean, Outlier == FALSE)
 set.seed(7)
@@ -242,7 +269,7 @@ water_train <- water_clean_no_outliers[ idx, ]
 water_test <- water_clean_no_outliers[ !idx, ]
 ```
 
-##### Scale Data 
+#### Scale Data 
 ```{r}
 y_train <- water_train$Potability
 X_train <- water_train[, 1:9]
@@ -274,7 +301,7 @@ plot( # plot the accuracy for each value of K
   type = "l",
   xlab = "K",
   ylab = "Accuracy",
-  main = "KNN Accuracies"
+  main = "k-NN Accuracies"
 )
 ```
 
@@ -311,18 +338,42 @@ precision <- TP / TPP
 recall <- TP / TAP 
 specificity <- TN / TAN 
 F1_score <- 2 * (precision * recall) / (precision + recall)
-accuracy
-precision
-recall 
-specificity 
-F1_score
+round(accuracy,2)
+round(precision,2)
+round(recall,2) 
+round(specificity,2) 
+round(F1_score,2)
 ```
 
 The model performs better when outliers are included. 
 
-#### Decision Tree Cart & C5.0
+```{r}
+roc_knn <- class::knn(
+  train = X_train,
+  test = X_test, 
+  cl = y_train, 
+  k = 7, 
+  prob = TRUE
+)
 
-#Splitting into training and test data (80:20 ratio)
+a <- attributes(roc_knn)$prob
+roc(y_test, a)
+
+plot(roc(y_test, a), print.auc = T, print.auc.y = 0.2, main = "k-NN AUC")
+```
+
+```{r}
+library(ROCR)
+library(pracma)
+FPR <- FP / (FP + TN)
+X_knn <- 0;recall;1
+Y_knn <- 0;FPR;1
+auc_knn <- trapz(Y_knn, X_knn)
+```
+
+## Decision Tree Cart & C5.0
+
+#### Splitting into training and test data (80:20 ratio)
 
 ```{r}
 set.seed(7)
@@ -334,158 +385,503 @@ water_test <- water_clean[ !water_ind, ]
 table(water_train$Potability)
 ```
 
-#?Balancing training data set
+#### Getting Gini Impurity for Decision Tree
 
 ```{r}
-table(water_train$Potability)
-to.resample <- which(water_train$Potability == "1")
-our.resample <- sample(x=to.resample, size =  , replace = TRUE)
+round(gini(water_train$ph),2)   #1
+round(gini(water_train$Hardness),2)  #2
+round(gini(water_train$Solids),2)  #3
+round(gini(water_train$Chloramines),2)  #4
+round(gini(water_train$Sulfate),2)  #5
+round(gini(water_train$Conductivity),2)  #6 
+round(gini(water_train$Organic_carbon),2)  #7
+round(gini(water_train$Trihalomethanes),2)  #8
+round(gini(water_train$Turbidity),2)  #9
 ```
 
-#Getting Gini Impurity for Decision Tree
-
-```{r}
-gini(water_train$ph)   #1
-gini(water_train$Hardness)  #2
-gini(water_train$Solids)  #3
-gini(water_train$Chloramines)  #4
-gini(water_train$Sulfate)  #5
-gini(water_train$Conductivity)  #6 
-gini(water_train$Organic_carbon)  #7
-gini(water_train$Trihalomethanes)  #8
-gini(water_train$Turbidity)  #9
-```
-
-#Sulfate has lowest Gini (0.058)
+#### Sulfate has Lowest Gini (0.058)
 
 ```{r}
 cart01 <- rpart(formula = Potability ~  ph + Hardness + Sulfate,  data=water_train, method = "class")
-rpart.plot(cart01)
-?rpart.plot
-rpart.plot(cart01, type = 4, extra = 4)
+rpart.plot(cart01, main = 'Cart Decision Tree')
+rpart.plot(cart01, type = 4, extra = 4, main = 'Cart Decision Tree with Split Labels')
 ```
 
-#Decision tree interpretation
-#Nodes are split by the sulfate, ph, and hardness (since they have lowest GINI index) among all other variables. 
-#39% of the training data set have sulfate level <258 which shows potability of water (1). Only 3% of the training data set. 
-#Another 97% has sulfate >258.  That node is then split again with sulfate level of 388. 
-#Sulfate < 388 and ph < 7.6 are still potable while ph > 7.6 falls into potability of 0.
-#Sulfate > 388, hardness < 162, ph >7 are potablility of 1.  
+#### Decision Tree Interpretation
 
-#To obtain classifications for each record in data set using CART model
+Nodes are split by the sulfate, ph, and hardness (since they have lowest GINI index) among all other variables. 
+39% of the training data set have sulfate level <258 which shows potability of water (1). Only 3% of the training data set. 
+Another 97% has sulfate > 258.  That node is then split again with sulfate level of 388. 
+Sulfate < 388 and ph < 7.6 are still potable while ph > 7.6 falls into potability of 0.
+Sulfate > 388, hardness < 162, ph > 7 are potablility of 1.  
+
+#### To obtain classifications for each record in data set using CART model
 
 ```{r}
 X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
+
 predPotabilityCART = predict(object =cart01, newdata = X, type="class")
 ```
 
-#Evaluating the model
+#### Evaluating the Model
 
 ```{r}
 test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
 ypred <- predict(object = cart01, newdata = test.X, type = "class")
+
 t1 <- table(water_test$Potability, ypred)
 row.names(t1) <- c("Actual:0", "Actual: 1")
 colnames(t1) <- c("Predicted: 0", "Predicted:1")
 t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
 ```
 
-#Checking overrall statistics of model
+#### Checking Overrall Statistics of Model
 
 ```{r}
 predicted.classes <- ypred
 observed.classes <- water_test$Potability
 accuracy <- mean(observed.classes == predicted.classes)
 accuracy
+
 predicted.classes <- factor(predicted.classes)
 observed.classes <- factor(observed.classes)
-confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes)
+
+confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes, positive = '1')
 confusionmatrix
 ```
 
-#Testing out Pre-pruning to get better accuracy score
+#### Testing out pre-pruning to get better accuracy score
 
 ```{r}
 print(cart01) #text version of tree
 printcp(cart01) 
-plotcp(cart01) #Plots multiple cp values with error - only works if using cross-validation (xval > 0)
+plotcp(cart01, main = "CP Values") #Plots multiple cp values with error - only works if using cross-validation (xval > 0)
 ```
 
-#pre-pruning
+#### Pre-Pruning
 
 ```{r}
 # Grow a tree with minsplit of 100 and max depth of 8
-cart01_preprun <- rpart(formula = Potability ~  ph + Sulfate + Hardness,  data=water_train, method = "class", control = rpart.control(cp = 0, maxdepth = 8,minsplit = 100))
+
+cart01_preprun <- rpart(formula = Potability ~  ph + Sulfate + Hardness,  data=water_train, method = "class", control = rpart.control(cp = 0, maxdepth = 8, minsplit = 100))
+
 printcp(cart01_preprun)
-rpart.plot(cart01_preprun)
-?rpart.plot
-rpart.plot(cart01_preprun, type = 4, extra = 2)
+rpart.plot(cart01_preprun, main = "Pre-Pruning Cart Decision Tree")
+rpart.plot(cart01_preprun, type = 4, extra = 2, main = "Pre-Pruning Cart Decision Tree with Split Labels")
 ```
 
-#To obtain classifications for each record in data set using CART model
+#### To obtain classifications for each record in data set using CART model
 
 ```{r}
-X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
-predPotabilityCART = predict(object =cart01, newdata = X, type="class")
+X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity)
+
+predPotabilityCART = predict(object = cart01, newdata = X, type="class")
 ```
 
-#Evaluating the model
+#### Evaluating the Model
 
 ```{r}
 test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
-ypred <- predict(object = cart01, newdata = test.X, type = "class")
+
+ypred <- predict(object = cart01_preprun, newdata = test.X, type = "class")
+
 t1 <- table(water_test$Potability, ypred)
 row.names(t1) <- c("Actual:0", "Actual: 1")
 colnames(t1) <- c("Predicted: 0", "Predicted:1")
 t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
 ```
 
-#prepruning accuracy
+#### Pre-Pruning Accuracy
 
 ```{r}
-# Compute the accuracy of the pruned tree
+# Compute the Accuracy of the Pruned Tree
 ypred_prun <- predict(object = cart01_preprun, newdata = test.X, type = "class")
+
 predicted.classes_prun <- ypred_prun
 observed.classes_prun <- water_test$Potability
 accuracy_prun <- mean(observed.classes == predicted.classes_prun)
 accuracy_prun
+
+predicted.class_prun <- factor(predicted.classes_prun)
+observed.classes_prun <- factor(observed.classes_prun)
+
+confusionmatrix_prun <- confusionMatrix(data = predicted.classes_prun, reference = observed.classes_prun, positive ="1")
+confusionmatrix_prun
 ```
 
-#Decision tree using C5.0
+### Decision Tree using C5.0
 
-```{r}
+```{r, fig.width = 5, fig.height = 3}
 water_train$Potability <- factor(water_train$Potability)
-C5 <- C5.0(formula = Potability ~ Sulfate + Hardness + ph ,  data=water_train, control = C5.0Control(minCases=75))
-plot(C5)
+C5 <- C5.0(formula = Potability ~ Sulfate + Hardness + ph, data = water_train, control = C5.0Control(minCases=75))
+plot(C5, main = 'C5.0 Decision Tree')
 ```
 
-#To obtain classifications for each record in data set using CART model
+#### To obtain classifications for each record in data set using CART model
 
 ```{r}
-X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity) 
-predict(object = C5, newdata = X)
+X = data.frame(ph = water_train$ph, Hardness = water_train$Hardness, Solids = water_train$Solids, Chloramines = water_train$Chloramines, Sulfate = water_train$Sulfate, Conductivity = water_train$Conductivity, Organic_carbon = water_train$Organic_carbon, Trihalomethanes = water_train$Trihalomethanes, Turbidity =water_train$Turbidity)
+
+pred <- predict(object = C5, newdata = X)
 ```
 
-#Evaluating the model
+#### Evaluating the Model
 
 ```{r}
 test.X <- subset (x= water_test, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+
 ypred <- predict(object = C5, newdata = test.X, type = "class")
+
 t1 <- table(water_test$Potability, ypred)
 row.names(t1) <- c("Actual:0", "Actual: 1")
 colnames(t1) <- c("Predicted: 0", "Predicted:1")
 t1 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
 ```
 
-#Checking overrall statistics of model
+#### Checking Overrall Statistics of Model
 
 ```{r}
 predicted.classes <- ypred
 observed.classes <- water_test$Potability
 accuracy <- mean(observed.classes == predicted.classes)
 accuracy
+
 predicted.classes <- factor(predicted.classes)
 observed.classes <- factor(observed.classes)
-confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes)
+
+confusionmatrix <- confusionMatrix(data=predicted.classes, reference = observed.classes, positive = '1')
 confusionmatrix
 ```
+
+### Decision Tree Models Without Outliers
+
+```{r}
+set.seed(7)
+
+n <- dim(water_clean_no_outliers)[1]
+
+water_ind_no_outliers <- runif(n) < 0.8
+
+water_train_no_outliers <- water_clean_no_outliers[ water_ind_no_outliers, ]
+water_test_no_outliers <- water_clean_no_outliers[ !water_ind_no_outliers, ]
+```
+
+### CART
+
+```{r}
+cart_nooutliers <- rpart(formula = Potability ~  ph + Hardness +  Sulfate, 
+data=water_train_no_outliers, method = "class")
+
+rpart.plot(cart_nooutliers, main = "Cart Decision Tree with No Outliers")
+rpart.plot(cart_nooutliers, type = 4, extra = 4, main = "Cart Decision Tree with Split Levels and No Outliers")
+```
+
+```{r}
+X = data.frame(ph = water_train_no_outliers$ph, Hardness = water_train_no_outliers$Hardness, Solids = water_train_no_outliers$Solids, Chloramines = water_train_no_outliers$Chloramines, Sulfate = water_train_no_outliers$Sulfate, Conductivity = water_train_no_outliers$Conductivity, Organic_carbon = water_train_no_outliers$Organic_carbon, Trihalomethanes = water_train_no_outliers$Trihalomethanes, Turbidity =water_train_no_outliers$Turbidity) 
+
+predPotabilityCART_nooutliers = predict(object = cart_nooutliers, newdata = X, type="class")
+```
+
+#### Evaluating the CART Model without Outliers
+
+```{r}
+test.X_nooutliers <- subset (x= water_test_no_outliers, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+
+
+ypred_nooutliers <- predict(object = cart_nooutliers, newdata = test.X_nooutliers, type = "class")
+
+t11 <- table(water_test_no_outliers$Potability, ypred_nooutliers)
+row.names(t11) <- c("Actual:0", "Actual: 1")
+colnames(t11) <- c("Predicted: 0", "Predicted:1")
+t11 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
+```
+
+#### Checking Overrall Statistics of CART Model
+
+```{r}
+predicted.classes_nooutliers <- ypred_nooutliers
+observed.classes_nooutliers <- water_test_no_outliers$Potability
+accuracy_nooutliers <- mean(observed.classes_nooutliers == predicted.classes_nooutliers)
+accuracy_nooutliers
+
+
+predicted.classes_nooutliers <- factor(predicted.classes_nooutliers)
+observed.classes_nooutliers <- factor(observed.classes_nooutliers)
+
+confusionmatrix_nooutliers <- confusionMatrix(data=predicted.classes_nooutliers, reference = observed.classes_nooutliers, positive='1')
+
+confusionmatrix_nooutliers
+```
+
+#### Pre-Pruning without Outliers for CART
+
+```{r}
+# Grow a tree with minsplit of 100 and max depth of 8
+
+cart01_preprun_nooutliers <- rpart(formula = Potability ~  Sulfate + Hardness + ph, data=water_train_no_outliers, method = "class", control = rpart.control(cp = 0, maxdepth = 8,minsplit = 100))
+
+printcp(cart01_preprun_nooutliers)
+rpart.plot(cart01_preprun_nooutliers, main = "Pre-Pruning Cart Decision Tree without Outliers")
+rpart.plot(cart01_preprun_nooutliers, type = 4, extra = 2, main = "Pre-Pruning Cart Decision Tree with Split Level and without Outliers ")
+```
+
+#### Checking Overall Statistics of Pre-Pruned CART
+
+```{r}
+# Compute the Accuracy of the Pruned Tree
+
+ypred_prun_nooutliers <- predict(object = cart01_preprun_nooutliers, newdata = test.X_nooutliers, type = "class")
+
+predicted.classes_prun_nooutliers <- ypred_prun_nooutliers
+observed.classes_prun_nooutliers <- water_test_no_outliers$Potability
+accuracy_prun_nooutliers <- mean(observed.classes_nooutliers == predicted.classes_prun_nooutliers)
+accuracy_prun_nooutliers
+
+
+predicted.classes_prun_nooutliers <- factor(predicted.classes_prun_nooutliers)
+observed.classes_prun_nooutliers <- factor(observed.classes_prun_nooutliers)
+
+confusionmatrix_prun_nooutliers <- confusionMatrix(data=predicted.classes_prun_nooutliers, reference = observed.classes_prun_nooutliers, positive = "1")
+
+confusionmatrix_prun_nooutliers
+```
+
+### Decision tree using C5.0 without outliers
+
+```{r, fig.width = 5, fig.height = 3}
+water_train_no_outliers$Potability <- factor(water_train_no_outliers$Potability)
+C5_noout <- C5.0(formula = Potability ~ Sulfate + Hardness + ph ,  data=water_train_no_outliers, control = C5.0Control(minCases=75))
+plot(C5_noout, main = "C5.0 Decision Tree without Outliers")
+```
+
+#### To obtain classifications for each record in data set using CART model
+
+```{r}
+X_C5.0 = data.frame(ph = water_train_no_outliers$ph, Hardness = water_train_no_outliers$Hardness, Solids = water_train_no_outliers$Solids, Chloramines = water_train_no_outliers$Chloramines, Sulfate = water_train_no_outliers$Sulfate, Conductivity = water_train_no_outliers$Conductivity, Organic_carbon = water_train_no_outliers$Organic_carbon, Trihalomethanes = water_train_no_outliers$Trihalomethanes, Turbidity =water_train_no_outliers$Turbidity) 
+
+pred_wo <- predict(object = C5_noout, newdata = X_C5.0)
+```
+
+#### Evaluating the C5.0 model
+
+```{r}
+test.X_C5.0 <- subset (x= water_test_no_outliers, select = c("ph", "Hardness", "Solids", "Chloramines", "Sulfate", "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"))
+
+
+ypred_C5.0 <- predict(object = C5_noout, newdata = test.X_C5.0, type = "class")
+
+t13 <- table(water_test_no_outliers$Potability, ypred_C5.0)
+row.names(t13) <- c("Actual:0", "Actual: 1")
+colnames(t13) <- c("Predicted: 0", "Predicted:1")
+t13 <- addmargins(A=t1,FUN=list(Total = sum), quiet = TRUE); t1
+```
+
+#### Checking Overrall Statistics of C5.0 Model
+
+```{r}
+predicted.classes_C5.0 <- ypred_C5.0
+observed.classes_C5.0 <- water_test_no_outliers$Potability
+accuracy_C5.0 <- mean(observed.classes_C5.0 == predicted.classes_C5.0)
+accuracy_C5.0
+
+
+predicted.classes_C5.0 <- factor(predicted.classes_C5.0)
+observed.classes_C5.0 <- factor(observed.classes_C5.0)
+
+confusionmatrix_C5.0 <- confusionMatrix(data=predicted.classes_C5.0, reference = observed.classes_C5.0, positive = "1")
+
+confusionmatrix_C5.0
+```
+
+## Logistic Regression
+
+```{r}
+set.seed(7)
+```
+
+```{r}
+n <- dim(water_clean)[1]
+```
+
+```{r}
+water_ind <- runif(n) < 0.8
+```
+
+```{r}
+water_train <- water_clean[ water_ind, ]
+water_test <- water_clean[ !water_ind, ]
+```
+
+```{r}
+#Binomial logistic regression for training data set
+logreg01 <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train, family = binomial)
+summary(logreg01)
+```
+
+```{r}
+#Binomial logistic regression for test data set
+logreg01_test <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test, family = binomial)
+summary(logreg01_test)
+```
+
+```{r}
+#Binomial logistic regression for train data set with select variables
+logreg02 <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train, family = binomial)
+summary(logreg02)
+```
+
+```{r}
+#Binomial logistic regression for test data set select variables
+logreg02_test <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test, family = binomial)
+summary(logreg02_test)
+```
+
+```{r}
+entry01 <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+predict(object = logreg02, newdata = entry01)
+```
+```{r}
+predicted <- predict(logreg02, newdata = water_test, type = "response")
+```
+
+```{r}
+#Logistic Regression Plot of predicted probabilities for potability
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+lg <- plot(ggpredict(logreg02_test, c('Solids','Organic_carbon'))) + scale_fill_manual(values=cbPalette) + scale_colour_manual(values=cbPalette)
+lg + ggplot2::labs(title = 'Probabilities of Potability')
+```
+
+```{r}
+table(water_test$Potability)
+```
+
+```{r}
+cmatrix <- table(water_test$Potability, predicted < 0.378)
+cmatrix <- addmargins(A = cmatrix, FUN = list(Total = sum), quiet = TRUE)
+cmatrix
+```
+
+```{r}
+#Matrices set up for metrics
+
+GT <- cmatrix[3, 3]
+TP <- cmatrix[2, 2]
+TN <- cmatrix[1, 1]
+FP <- cmatrix[1, 2]
+FN <- cmatrix[2, 1]
+TAP <- cmatrix[2, 3]
+TAN <- cmatrix[1, 3]
+TPP <- cmatrix[3, 2]
+TPN <- cmatrix[3, 1]
+```
+
+```{r}
+#Metrics 
+accuracy <- (TP + TN) / GT
+precision <- TP / TPP
+sensitivity <- TP / TAP
+specificity <- TN / TAN
+round(accuracy,2)
+round(precision,2)
+round(sensitivity,2)
+round(specificity,2)
+```
+
+
+## Logistic Regression with No Outliers
+
+```{r}
+set.seed(7)
+```
+
+```{r}
+n <- dim(water_clean_no_outliers)[1]
+```
+
+```{r}
+water_ind_no_outliers <- runif(n) < 0.8
+```
+
+```{r}
+water_train_no_outliers <- water_clean_no_outliers[ water_ind_no_outliers, ]
+water_test_no_outliers <- water_clean_no_outliers[ !water_ind_no_outliers, ]
+```
+
+```{r}
+#logistic regression training data set summary of all variables
+logreg01_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_train_no_outliers, family = binomial)
+summary(logreg01_no_outliers)
+```
+
+```{r}
+#logistic regression test set summary with all variables
+logreg01_test_no_outliers <- glm(formula = Potability ~ ph + Hardness + Solids + Chloramines + Sulfate + Conductivity + Organic_carbon + Trihalomethanes + Turbidity, data = water_test_no_outliers, family = binomial)
+summary(logreg01_test_no_outliers)
+```
+
+```{r}
+#logistic regression train data set with select variables
+logreg02_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_train_no_outliers, family = binomial)
+summary(logreg02_no_outliers)
+```
+
+```{r}
+#logistic regression test set summary with select variables
+logreg02_test_no_outliers <- glm(formula = Potability ~ Solids + Organic_carbon, data = water_test_no_outliers, family = binomial)
+summary(logreg02_test_no_outliers)
+```
+After analyzing the summary with all predictor variables and with select variables, the select variables produced better results. With this, the remaining predictions will move forward with the logistic regression using select variables of *solids* and *organic_carbon*.
+
+```{r}
+#require(ggiraph)
+#require(ggiraphExtra)
+#ggPredict(logreg02_test_no_outliers, se=TRUE, interactive=TRUE, digits=3)
+```
+
+```{r}
+entry01_no_outliers <- data.frame(Solids = 20791.319, Organic_carbon = 10.379783)
+round(predict(object = logreg02_no_outliers, newdata = entry01_no_outliers),2)
+```
+```{r}
+predicted_no_outliers <- predict(logreg02_no_outliers, newdata = water_test_no_outliers, type = "response")
+```
+
+
+```{r}
+table(water_test_no_outliers$Potability)
+```
+
+```{r}
+cmatrix_no_outliers <- table(water_test_no_outliers$Potability, predicted_no_outliers < 0.378)
+cmatrix_no_outliers <- addmargins(A = cmatrix_no_outliers, FUN = list(Total = sum), quiet = TRUE)
+cmatrix_no_outliers
+```
+
+```{r}
+GT_no_outliers <- cmatrix_no_outliers[3, 3]
+TP_no_outliers <- cmatrix_no_outliers[2, 2]
+TN_no_outliers <- cmatrix_no_outliers[1, 1]
+FP_no_outliers <- cmatrix_no_outliers[1, 2]
+FN_no_outliers <- cmatrix_no_outliers[2, 1]
+TAP_no_outliers <- cmatrix_no_outliers[2, 3]
+TAN_no_outliers <- cmatrix_no_outliers[1, 3]
+TPP_no_outliers <- cmatrix_no_outliers[3, 2]
+TPN_no_outliers <- cmatrix_no_outliers[3, 1]
+```
+
+```{r}
+accuracy_no_outliers <- (TP_no_outliers + TN_no_outliers) / GT_no_outliers
+precision_no_outliers <- TP_no_outliers / TPP_no_outliers
+sensitivity_no_outliers <- TP_no_outliers / TAP_no_outliers
+specificity_no_outliers <- TN_no_outliers / TAN_no_outliers
+round(accuracy_no_outliers,2)
+round(precision_no_outliers,2)
+round(sensitivity_no_outliers,2)
+round(specificity_no_outliers,2)
+```
+
+```{r}
+#Logistic Regression AUC
+auc(water_test$Potability, predicted)
+```
+
