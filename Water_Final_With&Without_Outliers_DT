@@ -160,12 +160,15 @@ skewness(water[,-10])
 #Overall, most variables are most evenly distruibuted with negelectible skewness like the numbers mentioned above.   
 #For potability, ess potability (1) than 0.
 ```{r}
-# Multiple histograms
-par(mfrow=c(3, 3))
+
+```{r}
+#Multiple histograms  (updated code)
+par(mfrow=c(2,3))
 colnames <- dimnames(water)[[2]]
-for (i in 2:8) {
-    hist(water[,i],main=colnames[i], probability=TRUE, col="blue", border="white")
+for (i in 1:9) {
+    hist(water[,i],main=colnames[i], col="blue", border="white")
 }
+```
 
 ```
 #Correlations
