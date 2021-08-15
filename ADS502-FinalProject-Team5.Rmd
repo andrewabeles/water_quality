@@ -79,10 +79,10 @@ water_clean$Sulfate[is.na(water_clean$Sulfate)] <- mean(water_clean$Sulfate, na.
 water_clean$Trihalomethanes[is.na(water_clean$Trihalomethanes)] <- mean(water_clean$Trihalomethanes, na.rm = TRUE)
 ```
 
-```{r}
+```{r, echo = FALSE, message = FALSE, results = 'hide'}
 #Boxplot visual to understand shape and search for outliers
 attach(water_clean)
-par(mfrow=c(2,3))
+par(mfrow=c(1,3))
 boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
 boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
 boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
