@@ -1,7 +1,7 @@
 ---
 title: "ADS502 Team 5 Final Project"
 author: "Katie Hu, Andrew Abeles, Emma Oo, Jake Burnett"
-date: "7/27/2021"
+date: "8/16/2021"
 output: html_document
 ---
 
@@ -880,7 +880,7 @@ kable(
   ) %>%
   kable_classic(full_width = TRUE, html_font = "Times New Roman") %>%
   row_spec(row = 0, align = "c") %>%
-  pack_rows('With Outliers', 1, 5) 
+  pack_rows('With Outliers', 1, 4) 
 ```
 
 
