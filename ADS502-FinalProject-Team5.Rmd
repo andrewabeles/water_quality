@@ -12,11 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 # Libraries and Dataset
 ```{r}
 #Import Libraries and Dataset
-
+library(knitr)
+library(kableExtra)
 library(ggplot2)
 library(GGally)
-library(plyr)
-library(dplyr)
+#library(plyr)
+#library(dplyr)
 library(class)
 library(C50)
 library(reldist)
@@ -27,6 +28,7 @@ library(rpart.plot)
 library(pROC)
 library(devtools)
 library(ggeffects)
+library(tidyverse)
 ```
 
 # Import Dataset
@@ -62,10 +64,13 @@ c + ggplot2::labs(title = 'Correlation Matrix')
 
 ```{r}
 #Visualize Distribution of Predictor Variables
-par(mfrow=c(3,4))
-colnames <- dimnames(water_clean)[[2]]
-for(i in 1:10) {hist(water_clean[,i], main = colnames[i], probability = TRUE, col = 'cornflowerblue', border = 'white')}
+par(mfrow=c(2,3))
+colnames <- dimnames(water)[[2]]
+for (i in 1:9) {
+    hist(water[,i],main=colnames[i], col="blue", border="white")
+}
 ```
+
 No variables have significant correlation with one another. Each variable with missing values has a normal distribution. With this, the missing values were replaced with the mean.
 
 ```{r}
@@ -79,7 +84,7 @@ water_clean$Trihalomethanes[is.na(water_clean$Trihalomethanes)] <- mean(water_cl
 ```{r}
 #Boxplot visual to understand shape and search for outliers
 attach(water_clean)
-par(mfrow=c(3,3))
+par(mfrow=c(2,3))
 boxplot(ph~Potability,data=water_clean, main="Potability and ph", xlab="Potability", ylab="ph")
 boxplot(Hardness~Potability,data=water_clean, main="Potability and Hardness", xlab="Potability", ylab="Hardness")
 boxplot(Solids~Potability,data=water_clean, main="Potability and Solids", xlab="Potability", ylab="Solids")
@@ -200,14 +205,14 @@ plot( # plot the accuracy for each value of K
 )
 ```
 
-K = 5 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 5 and calculate its confusion matrix. 
+K = 7 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 7 and calculate its confusion matrix. 
 
 ```{r}
 knn <- knn(
   train = X_train,
   test = X_test, 
   cl = y_train, 
-  k = 5
+  k = 7
 )
 cm <- as.matrix(table(Actual = y_test, Predicted = knn))
 cm <- addmargins(A = cm, FUN = list(Total = sum), quiet = TRUE)
@@ -240,22 +245,6 @@ round(specificity,2)
 round(F1_score,2)
 ```
 
-
-```{r}
-#Plot and Determine Area under Curve
-roc_knn <- class::knn(
-  train = X_train,
-  test = X_test, 
-  cl = y_train, 
-  k = 7, 
-  prob = TRUE
-)
-
-a <- attributes(roc_knn)$prob
-roc(y_test, a)
-
-plot(roc(y_test, a), print.auc = T, print.auc.y = 0.2, main = "k-NN AUC", legacy.axes = TRUE)
-```
 
 ### KNN (Excluding Outliers)
 
@@ -305,14 +294,14 @@ plot( # plot the accuracy for each value of K
 )
 ```
 
-K = 7 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 7 and calculate its confusion matrix. 
+K = 9 seems to be the best model in terms of accuracy. Let's train a KNN model with K = 9 and calculate its confusion matrix. 
 
 ```{r}
 knn <- knn(
   train = X_train,
   test = X_test, 
   cl = y_train, 
-  k = 7
+  k = 9
 )
 cm <- as.matrix(table(Actual = y_test, Predicted = knn))
 cm <- addmargins(A = cm, FUN = list(Total = sum), quiet = TRUE)
@@ -345,31 +334,7 @@ round(specificity,2)
 round(F1_score,2)
 ```
 
-The model performs better when outliers are included. 
-
-```{r}
-roc_knn <- class::knn(
-  train = X_train,
-  test = X_test, 
-  cl = y_train, 
-  k = 7, 
-  prob = TRUE
-)
-
-a <- attributes(roc_knn)$prob
-roc(y_test, a)
-
-plot(roc(y_test, a), print.auc = T, print.auc.y = 0.2, main = "k-NN AUC")
-```
-
-```{r}
-library(ROCR)
-library(pracma)
-FPR <- FP / (FP + TN)
-X_knn <- 0;recall;1
-Y_knn <- 0;FPR;1
-auc_knn <- trapz(Y_knn, X_knn)
-```
+The model performs better when outliers are excluded. 
 
 ## Decision Tree Cart & C5.0
 
@@ -870,18 +835,38 @@ TPN_no_outliers <- cmatrix_no_outliers[3, 1]
 ```
 
 ```{r}
-accuracy_no_outliers <- (TP_no_outliers + TN_no_outliers) / GT_no_outliers
-precision_no_outliers <- TP_no_outliers / TPP_no_outliers
-sensitivity_no_outliers <- TP_no_outliers / TAP_no_outliers
-specificity_no_outliers <- TN_no_outliers / TAN_no_outliers
-round(accuracy_no_outliers,2)
-round(precision_no_outliers,2)
-round(sensitivity_no_outliers,2)
-round(specificity_no_outliers,2)
+model_metrics = data.frame(
+  Metrics = c("Accuracy", "Precision", "Sensitivity", "Specificity"),
+  k-NN = c("1", "2", "3", "4"),
+  DT_CART = c("1", "2", "3", "4"),
+  DT_C5.0 = c("1", "2", "3", "4"),
+  LR = c("1", "2", "3", "4")
+)
 ```
 
 ```{r}
-#Logistic Regression AUC
-auc(water_test$Potability, predicted)
+kable(
+  model_metrics,
+  format = "html",
+  booktabs = TRUE,
+  col.names = c("Metrics", "k-NN", "CART", "C5.0", "Logistic Regression"),
+  align = c("l", "c", "c", "c"),
+  caption = "Model Metrics"
+  )
 ```
-
+```{r}
+kable(
+  model_metrics,
+  format = "html",
+  col.names = c("Scale", "High BAS group", "Moderate BAS group", "*p*"),
+  align = c("l", "c", "c", "c"),
+  caption = "Means and Standard Deviations of Scores on Baseline Measures"
+  ) %>%
+  kable_styling(full_width = TRUE) %>%
+  row_spec(row = 0, align = "c") %>%
+   footnote(
+    general_title = "Note.",
+    general = "Standard deviations are presented in parentheses. BAS = Behavioral Activation System; BAS-T = Behavioral Activation System-Total sores from the Behavioral Inhibition System/Behavioral Activation System Scales; SR = Sensitivity to Reward scores from the Sensitivity to Punishment and Sensitivity to Reward Questionnaire; BDI = Beck Depression Inventory scores; ASRM = Altman Self-Rating Mania Scale scores; M-SRM = Modified Social Rhythm Metric Regularity scores.",
+   footnote_as_chunk = TRUE
+    )
+```
