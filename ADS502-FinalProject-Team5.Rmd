@@ -1,8 +1,10 @@
 ---
-title: "Potability of Water: The Effect on Health and Safe Water Consumption"
-author: "Team 5: Katie Hu, Andrew Abeles, Emma Oo, Jake Burnett"
+title: 'Potability of Water: The Effect on Health and Safe Water Consumption'
+author: 'Team 5: Katie Hu, Andrew Abeles, Emma Oo, Jake Burnett'
 date: "8/16/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
