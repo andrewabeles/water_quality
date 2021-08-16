@@ -334,6 +334,11 @@ round(F1_score,2)
 
 The model performs better when outliers are excluded. 
 
+### k-Nearest Neighbors Equation
+
+$$\hat y  = arg \ max_v \sum_{(x_i , y_i) \in D_z}^{i} I(v = y_i)$$
+
+
 ## Decision Tree Cart & C5.0
 
 #### Splitting into training and test data (80:20 ratio)
